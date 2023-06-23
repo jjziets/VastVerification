@@ -21,7 +21,9 @@ Here is a quick overview of the main files and directories in this repository:
 1. Start by building the Docker image on the remote server using the Dockerfile provided.
 
     ```bash
-    docker build -t mytestimage .
+    docker build -t jjziets/vasttest:latest .
+    docker push  jjziets/vasttest:latest
+
     ```
 
 2. Once the Docker image is built, start a Docker container with the image. This will automatically start the remote.sh script and thus the netcat listener.
