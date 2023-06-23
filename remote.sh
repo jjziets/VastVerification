@@ -4,14 +4,17 @@
 PORT=5000
 echo "RUNNING" > progress.log
 
-# Start a single persistent netcat process listening on the specified port and responding with the content of progress.log
-while true
-do
-  echo "$(cat progress.log)" | nc -l $PORT
+# Start a detached netcat process listening on the specified port and responding with the content of progress.log
+# Restart netcat if it ever exits
+while true; do
+    nc -lp $PORT -c 'cat progress.log'
 done &
+
+# Store the PID of the background job
 bg_pid=$!
 
-#trap "kill $bg_pid" EXIT
+# Set a trap to kill the background job when this script exits
+trap "kill $bg_pid" EXIT
 
 # First Test
 python3 systemreqtest.py
