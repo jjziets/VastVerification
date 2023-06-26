@@ -1,26 +1,249 @@
 #!/bin/bash
+#to be used with vastcli in a shell. it will sreach for all the systems  unverified systems that meets the createare and starts the docker image jjziets/vasttest:latest
+# in it will run a scrypt remote.sh that will test the system and report on port 5000
+# once the instance is running it will is start local.sh  scrypt detatched with the machineID, IP and Port. local.sh will talk to remote.sh on the system that is being tested and save the result to Pass_testresults.log  as machine_id:done or to Error_testresults.log machine_id: error and message
+# local.sh  has 5min to get a responce from remote.sh if it does not it will write to progress.log  machineID: no responce from direct port 
+# if the instance status_msg show error or if the instance don't start in 10min time autoverify.sh will destory the instance and write the reason to the Error_testresults.log
+# ./vast create instance 6298306 --image  jjziets/vasttest:latest  --jupyter --direct --env '-e TZ=PDT -e XNAME=XX4 -p 5000:5000' --disk 20 --onstart-cmd './remote.sh'
 
-# Specify the remote server IP address
-REMOTE_SERVER_IP="94.155.194.99" # Change to your remote server IP address
-REMOTE_PORT="40146"
-while true; do
-    # Connect to the remote server and get the status
-    STATUS=$(nc $REMOTE_SERVER_IP $REMOTE_PORT)
+declare -A machine_ids
+declare -A public_ipaddrs
+declare -a active_instance_id
 
-    # Check the status
-    if [[ $STATUS == *"DONE"* ]]; then
-        echo "ALL GOOD"
-        exit 0
-    elif [[ $STATUS == *"ERROR"* ]]; then
-        echo "TEST FAILED"
-        exit 1
-    elif [[ $STATUS == *"STARTED"* ]]; then
-        echo "Test is still running..."
-    else
-        echo "Unknown status: $STATUS retry"
-        #exit 1
+function update_machine_id_and_ipaddr {
+  # Run the command and save the output
+  json_output=$(./vast show instances --raw)
+
+  # Convert the JSON array to a Bash array
+  mapfile -t instances < <(echo "$json_output" | jq -r '.[] | @base64')
+
+  # Now we can loop over the instances array
+  for instance in "${instances[@]}"; do
+    # Decode the instance from base64 back to JSON
+    instance_json=$(echo "$instance" | base64 --decode)
+
+    # Extract the instance_id, machine_id, and public_ipaddr from the JSON
+    instance_id=$(echo "$instance_json" | jq -r '.id')
+    machine_id=$(echo "$instance_json" | jq -r '.machine_id')
+    public_ipaddr=$(echo "$instance_json" | jq -r '.public_ipaddr')
+
+    # Add the machine_id and public_ipaddr to the associative arrays
+    machine_ids["$instance_id"]="$machine_id"
+    public_ipaddrs["$instance_id"]="$public_ipaddr"
+    active_instance_id+=("$instance_id") # Adding the instance_id to the array
+  done
+}
+
+pause () {
+	echo "Press any key to continue"
+	while [ true ] ; do
+	read -t 1 -n 1
+	if [ $? = 0 ] ; then
+		return
+	fi
+	done
+}
+
+function get_machine_id {
+  local instance_id=$1
+
+  # Check if the machine_id is in the associative array
+  if [ -z "${machine_ids[$instance_id]}" ]; then
+    # If not, update the associative arrays
+    update_machine_id_and_ipaddr
+  fi
+
+  # Now the machine_id should be in the associative array, so we can return it
+  echo "${machine_ids[$instance_id]}"
+}
+
+function get_public_ipaddr {
+  local instance_id=$1
+
+  # Check if the public_ipaddr is in the associative array
+  if [ -z "${public_ipaddrs[$instance_id]}" ]; then
+    # If not, update the associative arrays
+    update_machine_id_and_ipaddr
+  fi
+
+  # Now the public_ipaddr should be in the associative array, so we can return it
+  echo "${public_ipaddrs[$instance_id]}"
+}
+
+
+function get_status_msg {
+  id=$1
+
+  # Run the command and save the output
+  json_output=$(./vast show instances --raw)
+
+  # Convert the JSON array to a Bash array
+  mapfile -t instances < <(echo "$json_output" | jq -r '.[] | @base64')
+
+  # Now we can loop over the instances array
+  for instance in "${instances[@]}"; do
+    # Decode the instance from base64 back to JSON
+    instance_json=$(echo "$instance" | base64 --decode)
+
+    # Extract the ID from the JSON
+    instance_id=$(echo "$instance_json" | jq -r '.id')
+
+    # If this is the instance we're looking for
+    if [ "$instance_id" = "$id" ]; then
+      # Extract and print the status message
+      status_msg=$(echo "$instance_json" | jq -r '.status_msg')
+      echo "$status_msg"
+      return
     fi
+  done
 
-    # Sleep for a while before checking again
-    sleep 5
+  echo "No instance with ID $id found."
+}
+
+function get_actual_status {
+  id=$1
+
+  # Run the command and save the output
+  json_output=$(./vast show instances --raw 2>error.log)
+
+  # Check the return status of the command
+  if [ $? -ne 0 ]; then
+    echo "unknown"
+    return
+  fi
+
+  if [[ -z "$json_output" ]]; then
+    echo "No JSON output from command"
+    return
+  fi
+
+  # Convert the JSON array to a Bash array
+  mapfile -t instances < <(echo "$json_output" | jq -r '.[] | @base64')
+
+  # Now we can loop over the instances array
+  for instance in "${instances[@]}"; do
+    # Decode the instance from base64 back to JSON
+    instance_json=$(echo "$instance" | base64 --decode)
+
+    # Extract the ID from the JSON
+    instance_id=$(echo "$instance_json" | jq -r '.id')
+
+    # If this is the instance we're looking for
+    if [ "$instance_id" = "$id" ]; then
+      # Extract and print the actual_status
+      actual_status=$(echo "$instance_json" | jq -r 'if .actual_status != null then .actual_status else "unknown" end')
+      echo "$actual_status"
+      return
+    fi
+  done
+
+  echo "unknown"
+}
+
+
+#****************************** start of main prcess ********
+
+# create all the instances as needed
+Instances=($(./vast search offers 'verified=false cuda_vers>=12.0  gpu_frac=1 reliability>0.90 direct_port_count>3 pcie_bw>3 inet_down>30 inet_up>30 gpu_ram>7'  -o 'dlperf-'  | sed 's/|/ /'  | awk '{print $1}' )) # get all the instanses number from vast
+#Instances=($(./vast search offers 'verified=false cuda_vers>=12.0  gpu_frac=1 reliability>0.90 direct_port_count>3 pcie_bw>3 inet_down>500 inet_up>500 gpu_ram>7'  -o 'dlperf'  | sed 's/|/ /'  | awk '{print $1}' )) # get all the instanses number from vast
+ unset Instances[0] #delte the first index as it containe ID
+	let "cnt=0"
+	echo "There are ${#Instances[@]} systems to verify starting"
+#	pause
+	let "f=0"
+        for index in "${!Instances[@]}"; do
+#                printf "index $index = ${Instances[index]} \n"
+		./vast create instance "${Instances[index]}"  --image  jjziets/vasttest:latest  --jupyter --direct --env '-e TZ=PDT -e XNAME=XX4 -p 5000:5000' --disk 20 --onstart-cmd './remote.sh'
+#		sleep 1
+#		let "cnt=cnt+1"
+#                if [ $cnt -eq 10 ]; then  ### delete this if statment  and uncomment
+#                   break
+#                fi
+        done
+#*********************** Get all the instance
+sleep 10
+echo "Logging all the instance progress"
+update_machine_id_and_ipaddr  ## update the machine_id and the ip address
+start_time=$(date +%s) #store the time so that it can be checked
+echo "$start_time: Error logs for machine_id. Tested  ${#active_instance_id[@]} instances" > Error_testresults.log
+echo "$start_time: Pass logs for machine_id. Tested  ${#active_instance_id[@]} instances" > Pass_testresults.log
+echo "There are ${#active_instance_id[@]} active instances"
+## recreate the instance array
+
+while (( ${#active_instance_id[@]} > 0 )); do
+  for i in "${!active_instance_id[@]}"; do
+    instance_id="${active_instance_id[$i]}"
+    actual_status=$(get_actual_status "$instance_id")
+    echo "instance=$instance_id $actual_status"
+    current_time=$(date +%s)
+    if [ "$actual_status" == "running" ]; then
+        machine_id=$(get_machine_id "$instance_id")
+        public_port=$(python3 get_port_from_instance_id.py  "$instance_id")
+        exit_code=$?
+        if [ $exit_code -eq 2 ]; then
+            echo "$machine_id:No Direct Ports found $(get_status_msg "$instance_id")" >> Error_testresults.log
+            ./vast destroy instance "$instance_id" #destroy the instance
+            unset 'active_instance_id[$i]'
+            active_instance_id=( "${active_instance_id[@]}" ) # reindex the array
+            break  # We've modified the array in the loop, so we break and start the loop anew
+        elif [ $exit_code -eq 0 ] && [ "$public_port" != "" ]; then
+                public_ip=$(get_public_ipaddr "$instance_id")
+                ./machinetester.sh "$public_ip" "$public_port" "$instance_id" "$machine_id" &
+                echo "$instance_id starting ./machinetester.sh $public_ip $public_port $instance_id $machine_id"
+                unset 'active_instance_id[$i]' #delete this Instance from the list
+                active_instance_id=( "${active_instance_id[@]}" ) # reindex the array
+                break  # We've modified the array in the loop, so we break and start the loop anew
+        elif (( current_time - start_time > 900 )); then #check if it has been waiting for more than 15min
+            echo "$machine_id:Time exceeded $(get_status_msg "$instance_id")" >> Error_testresults.log
+            ./vast destroy instance "$instance_id" #destroy the instance
+            unset 'active_instance_id[$i]'
+            active_instance_id=( "${active_instance_id[@]}" ) # reindex the array
+            break  # We've modified the array in the loop, so we break and start the loop anew
+        fi
+    elif [ "$actual_status" == "loading" ]; then
+        if (( current_time - start_time > 900 )); then #check if it has been waiting for more than 15min
+            echo "$machine_id:Time exceeded $(get_status_msg "$instance_id")" >> Error_testresults.log
+            ./vast destroy instance "$instance_id" #destroy the instance
+            unset 'active_instance_id[$i]'
+            active_instance_id=( "${active_instance_id[@]}" ) # reindex the array
+            break  # We've modified the array in the loop, so we break and start the loop anew
+        fi
+    elif [ "$actual_status" == "created" ]; then
+        #Status: Error response from daemon: failed to create task for container: failed to create shim task: OCI runtime create failed
+        status_msg=$(get_status_msg "$instance_id")
+        if [[ $status_msg == "Error"* ]]; then
+            echo "$machine_id: $status_msg" >> Error_testresults.log
+            ./vast destroy instance "$instance_id" #destroy the instance
+            unset 'active_instance_id[$i]'
+            active_instance_id=( "${active_instance_id[@]}" ) # reindex the array
+            break  # We've modified the array in the loop, so we break and start the loop anew
+        elif (( current_time - start_time > 900 )); then #check if it has been waiting for more than 10min
+            echo "$machine_id:Time exceeded $(get_status_msg "$instance_id")" >> Error_testresults.log
+            ./vast destroy instance "$instance_id" #destroy the instance
+            unset 'active_instance_id[$i]'
+            active_instance_id=( "${active_instance_id[@]}" ) # reindex the array
+            break  # We've modified the array in the loop, so we break and start the loop anew
+        fi
+    elif [ "$actual_status" == "offline" ]; then
+            echo "$machine_id: went offline $(get_status_msg "$instance_id")" >> Error_testresults.log
+            ./vast destroy instance "$instance_id" #destroy the instance
+            unset 'active_instance_id[$i]'
+            active_instance_id=( "${active_instance_id[@]}" ) # reindex the array
+            break  # We've modified the array in the loop, so we break and start the loop anew
+    fi
+  done
+
+  if (( ${#active_instance_id[@]} == 0 )); then
+    echo "done with all instances"
+    break
+  fi
+  sleep 1
 done
+
+#while (( $(pgrep -fc machinetester.sh) > 0 ))
+#do
+#    echo "Number of machinetester.sh processes still running: $(pgrep -fc machinetester.sh)"
+#    sleep 1
+#done
+
+echo "Exit: done with all instances"
