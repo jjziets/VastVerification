@@ -14,7 +14,7 @@ done &
 bg_pid=$!
 
 # Set a trap to kill the background job when this script exits
-trap "kill $bg_pid" EXIT
+#trap "kill $bg_pid" EXIT
 
 # First Test
 python3 systemreqtest.py
