@@ -230,65 +230,76 @@ while (( ${#active_instance_id[@]} > 0 )); do
     actual_status=$(get_actual_status "$instance_id")
     echo "instance=$instance_id $actual_status"
     current_time=$(date +%s)
-
-    case "$actual_status" in
-      running)
+    if [ "$actual_status" == "running" ]; then
         machine_id=$(get_machine_id "$instance_id")
-        public_port=$(python3 get_port_from_instance_id.py "$instance_id")
+        public_port=$(python3 get_port_from_instance_id.py  "$instance_id")
         exit_code=$?
-
         if [ $exit_code -eq 2 ]; then
-          echo "$machine_id: No Direct Ports found $(get_status_msg "$instance_id")" >> Error_testresults.log
+            echo "$machine_id:No Direct Ports found $(get_status_msg "$instance_id")" >> Error_testresults.log
+            ./vast destroy instance "$instance_id" #destroy the instance
+            unset 'active_instance_id[$i]'
+            active_instance_id=( "${active_instance_id[@]}" ) # reindex the array
+            break  # We've modified the array in the loop, so we break and start the loop anew
         elif [ $exit_code -eq 0 ] && [ "$public_port" != "" ]; then
-          public_ip=$(get_public_ipaddr "$instance_id")
-          lock_file="$lock_dir/lock_${public_ip}_${public_port}_${instance_id}_${machine_id}"
-
-          if [ ! -f "$lock_file" ]; then
-            touch "$lock_file"
-            trap "rm -f '$lock_file'" EXIT
-            ./machinetester.sh "$public_ip" "$public_port" "$instance_id" "$machine_id" && rm -f "$lock_file" &
-            echo "$instance_id starting ./machinetester.sh $public_ip $public_port $instance_id $machine_id"
-          else
-            echo "$instance_id already running ./machinetester.sh $public_ip $public_port $instance_id $machine_id"
-          fi
-        elif (( current_time - start_time > 900 )); then
-          echo "$machine_id: Time exceeded $(get_status_msg "$instance_id")" >> Error_testresults.log
+                public_ip=$(get_public_ipaddr "$instance_id")
+                lock_file="$lock_dir/lock_${public_ip}_${public_port}_${instance_id}_${machine_id}"
+                if [ ! -f "$lock_file" ]; then
+                   touch "$lock_file"
+                   trap "rm -f '$lock_file'" EXIT # Add a trap to remove the lock file when the script exits
+		   ./machinetester.sh "$public_ip" "$public_port" "$instance_id" "$machine_id" && rm -f "$lock_file" &
+		   echo "$instance_id starting ./machinetester.sh $public_ip $public_port $instance_id $machine_id"
+		else
+		    echo "$instance_id already running ./machinetester.sh $public_ip $public_port $instance_id $machine_id"
+           	fi
+                unset 'active_instance_id[$i]' #delete this Instance from the list
+                active_instance_id=( "${active_instance_id[@]}" ) # reindex the array
+                break  # We've modified the array in the loop, so we break and start the loop anew
+        elif (( current_time - start_time > 900 )); then #check if it has been waiting for more than 15min
+            echo "$machine_id:Time exceeded $(get_status_msg "$instance_id")" >> Error_testresults.log
+            ./vast destroy instance "$instance_id" #destroy the instance
+            unset 'active_instance_id[$i]'
+            active_instance_id=( "${active_instance_id[@]}" ) # reindex the array
+            break  # We've modified the array in the loop, so we break and start the loop anew
         fi
-        ;;
-
-      loading)
-        if (( current_time - start_time > 900 )); then
-          echo "$machine_id: Time exceeded $(get_status_msg "$instance_id")" >> Error_testresults.log
+    elif [ "$actual_status" == "loading" ]; then
+        if (( current_time - start_time > 900 )); then #check if it has been waiting for more than 15min
+            echo "$machine_id:Time exceeded $(get_status_msg "$instance_id")" >> Error_testresults.log
+            ./vast destroy instance "$instance_id" #destroy the instance
+            unset 'active_instance_id[$i]'
+            active_instance_id=( "${active_instance_id[@]}" ) # reindex the array
+            break  # We've modified the array in the loop, so we break and start the loop anew
         fi
+        #Status: Error response from daemon: failed to create task for container: failed to create shim task: OCI runtime create failed
         status_msg=$(get_status_msg "$instance_id")
-
         if [[ $status_msg == "Error"* ]]; then
-          echo "$machine_id: $status_msg" >> Error_testresults.log
-        fi
-        ;;
-
-      created)
+            echo "$machine_id: $status_msg" >> Error_testresults.log
+            ./vast destroy instance "$instance_id" #destroy the instance
+            unset 'active_instance_id[$i]'
+            active_instance_id=( "${active_instance_id[@]}" ) # reindex the array
+            break  # We've modified the array in the loop, so we break and start the loop anew
+	fi
+    elif [ "$actual_status" == "created" ]; then
+        #Status: Error response from daemon: failed to create task for container: failed to create shim task: OCI runtime create failed
         status_msg=$(get_status_msg "$instance_id")
-
         if [[ $status_msg == "Error"* ]]; then
-          echo "$machine_id: $status_msg" >> Error_testresults.log
-        elif (( current_time - start_time > 900 )); then
-          echo "$machine_id: Time exceeded $(get_status_msg "$instance_id")" >> Error_testresults.log
+            echo "$machine_id: $status_msg" >> Error_testresults.log
+            ./vast destroy instance "$instance_id" #destroy the instance
+            unset 'active_instance_id[$i]'
+            active_instance_id=( "${active_instance_id[@]}" ) # reindex the array
+            break  # We've modified the array in the loop, so we break and start the loop anew
+        elif (( current_time - start_time > 900 )); then #check if it has been waiting for more than 10min
+            echo "$machine_id:Time exceeded $(get_status_msg "$instance_id")" >> Error_testresults.log
+            ./vast destroy instance "$instance_id" #destroy the instance
+            unset 'active_instance_id[$i]'
+            active_instance_id=( "${active_instance_id[@]}" ) # reindex the array
+            break  # We've modified the array in the loop, so we break and start the loop anew
         fi
-        ;;
-
-      offline)
-        echo "$machine_id: went offline $(get_status_msg "$instance_id")" >> Error_testresults.log
-        ;;
-
-      *) ;;
-    esac
-
-    if [ -n "$machine_id" ]; then
-      ./vast destroy instance "$instance_id" # destroy the instance
-      unset 'active_instance_id[$i]'
-      active_instance_id=("${active_instance_id[@]}") # reindex the array
-      break  # We've modified the array in the loop, so we break and start the loop anew
+    elif [ "$actual_status" == "offline" ]; then
+            echo "$machine_id: went offline $(get_status_msg "$instance_id")" >> Error_testresults.log
+            ./vast destroy instance "$instance_id" #destroy the instance
+            unset 'active_instance_id[$i]'
+            active_instance_id=( "${active_instance_id[@]}" ) # reindex the array
+            break  # We've modified the array in the loop, so we break and start the loop anew
     fi
   done
 
