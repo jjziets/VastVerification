@@ -300,13 +300,6 @@ while (( ${#active_instance_id[@]} > 0 )); do
   sleep 1
 done
 
-  if (( ${#active_instance_id[@]} == 0 )); then
-    echo "done with all instances"
-    break
-  fi
-  sleep 1
-done
-
 while (( $(pgrep -fc machinetester.sh) > 0 ))
 do
     echo -n "Number of machinetester.sh processes still running: $(pgrep -fc machinetester.sh)"
