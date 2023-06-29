@@ -300,8 +300,7 @@ while (( ${#active_instance_id[@]} > 0 )); do
             unset 'active_instance_id[$i]'
             active_instance_id=( "${active_instance_id[@]}" ) # reindex the array
             break  # We've modified the array in the loop, so we break and start the loop anew
-    fi
-  done
+done
 
   if (( ${#active_instance_id[@]} == 0 )); then
     echo "done with all instances"
@@ -310,10 +309,10 @@ while (( ${#active_instance_id[@]} > 0 )); do
   sleep 1
 done
 
-#while (( $(pgrep -fc machinetester.sh) > 0 ))
-#do
-#    echo "Number of machinetester.sh processes still running: $(pgrep -fc machinetester.sh)"
-#    sleep 1
-#done
+while (( $(pgrep -fc machinetester.sh) > 0 ))
+do
+    echo "Number of machinetester.sh processes still running: $(pgrep -fc machinetester.sh)"
+    sleep 10
+done
 
 echo "Exit: done with all instances"
