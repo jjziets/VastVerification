@@ -144,14 +144,41 @@ function get_actual_status {
 #****************************** start of main prcess ********
 
 # create all the instances as needed
-Offers=($(./vast search offers 'verified=false cuda_vers>=12.0  gpu_frac=1 reliability>0.90 direct_port_count>3 pcie_bw>3 inet_down>30 inet_up>30 gpu_ram>7'  -o 'dlperf-'  | sed 's/|/ /'  | awk '{print $1}' )) # get all the instanses number from vast
-unset Instances[0] #delte the first index as it contains the title
+#Offers=($(./vast search offers 'verified=false cuda_vers>=12.0  gpu_frac=1 reliability>0.90 direct_port_count>3 pcie_bw>3 inet_down>30 inet_up>30 gpu_ram>7'  -o 'dlperf-'  | sed 's/|/ /'  | awk '{print $1}' )) # get all the instanses number from vast
+#unset Offers[0] #delte the first index as it contains the title
 
-for offer in "${Offers[@]}"; do
-    echo "$offer"
+# Fetch data from the system
+tempOffers=($(./vast search offers 'verified=false cuda_vers>=12.0  gpu_frac=1 reliability>0.90 direct_port_count>3 pcie_bw>3 inet_down>30 inet_up>30 gpu_ram>7'  -o 'dlperf-'  | sed 's/|/ /'  | awk '{print $1,$10,$17,$18}'))
+# Delete the first index as it contains the title
+unset tempOffers[0]
+
+# Declare associative arrays
+declare -A maxDLPs
+declare -A maxIDsWithMaxDLPs
+
+# Parse the tempOffers array
+for ((i=1; i<${#tempOffers[@]}; i+=4)); do
+    id=${tempOffers[i]}
+    dlp=${tempOffers[i+1]}
+    mach_id=${tempOffers[i+2]}
+    status=${tempOffers[i+3]}
+    
+    # Skip if status is "verified"
+    if [[ "$status" == "verified" ]]; then
+        continue
+    fi
+    
+    # If the current DLP is higher than the stored one or if mach_id doesn't exist in maxDLPs array
+    if [[ -z ${maxDLPs[$mach_id]} || $(bc <<< "$dlp > ${maxDLPs[$mach_id]}") -eq 1 ]]; then
+        maxDLPs[$mach_id]=$dlp
+        maxIDsWithMaxDLPs[$mach_id]=$id
+    fi
 done
 
+# Now, we only need IDs. Let's move them to the Offers array.
+Offers=("${maxIDsWithMaxDLPs[@]}")
 
+echo "There are ${#Offers[@]} systems to verify starting"
 pause 
 
 	echo "There are ${#Offers[@]} systems to verify starting"
