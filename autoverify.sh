@@ -200,22 +200,28 @@ done
 Offers=("${maxIDsWithMaxDLPs[@]}")
 
 echo "There are ${#Offers[@]} systems to verify starting"
-pause 
 
 	echo "There are ${#Offers[@]} systems to verify starting"
         for index in "${!Offers[@]}"; do
 		./vast create instance "${Offers[index]}"  --image  jjziets/vasttest:latest  --jupyter --direct --env '-e TZ=PDT -e XNAME=XX4 -p 5000:5000' --disk 20 --onstart-cmd './remote.sh'
         done
 
- 
 #*********************** Get all the instance
 sleep 10
 echo "Logging all the instance progress"
 update_machine_id_and_ipaddr  ## update the machine_id and the ip address
 start_time=$(date +%s) #store the time so that it can be checked
+active_instance_id=($(printf "%s\n" "${active_instance_id[@]}" | sort -u)) # This line prints each element of active_instance_id on its own line, sorts the output (removing duplicates with -u), and assigns the result back to active_instance_id.
 echo "$start_time: Error logs for machine_id. Tested  ${#active_instance_id[@]} instances" > Error_testresults.log
 echo "$start_time: Pass logs for machine_id. Tested  ${#active_instance_id[@]} instances" > Pass_testresults.log
 echo "There are ${#active_instance_id[@]} active instances"
+
+# Lock file base directory
+lock_dir="/tmp/machine_tester_locks"
+
+mkdir -p "$lock_dir"
+shopt -s nocasematch
+
 ## recreate the instance array
 
 while (( ${#active_instance_id[@]} > 0 )); do
@@ -236,8 +242,15 @@ while (( ${#active_instance_id[@]} > 0 )); do
             break  # We've modified the array in the loop, so we break and start the loop anew
         elif [ $exit_code -eq 0 ] && [ "$public_port" != "" ]; then
                 public_ip=$(get_public_ipaddr "$instance_id")
-                ./machinetester.sh "$public_ip" "$public_port" "$instance_id" "$machine_id" &
-                echo "$instance_id starting ./machinetester.sh $public_ip $public_port $instance_id $machine_id"
+                lock_file="$lock_dir/lock_${public_ip}_${public_port}_${instance_id}_${machine_id}"
+                if [ ! -f "$lock_file" ]; then
+                   touch "$lock_file"
+                   trap "rm -f '$lock_file'" EXIT # Add a trap to remove the lock file when the script exits
+		   ./machinetester.sh "$public_ip" "$public_port" "$instance_id" "$machine_id" && rm -f "$lock_file" &
+		   echo "$instance_id starting ./machinetester.sh $public_ip $public_port $instance_id $machine_id"
+		else
+		    echo "$instance_id already running ./machinetester.sh $public_ip $public_port $instance_id $machine_id"
+           	fi
                 unset 'active_instance_id[$i]' #delete this Instance from the list
                 active_instance_id=( "${active_instance_id[@]}" ) # reindex the array
                 break  # We've modified the array in the loop, so we break and start the loop anew
@@ -256,6 +269,15 @@ while (( ${#active_instance_id[@]} > 0 )); do
             active_instance_id=( "${active_instance_id[@]}" ) # reindex the array
             break  # We've modified the array in the loop, so we break and start the loop anew
         fi
+        #Status: Error response from daemon: failed to create task for container: failed to create shim task: OCI runtime create failed
+        status_msg=$(get_status_msg "$instance_id")
+        if [[ $status_msg == "Error"* ]]; then
+            echo "$machine_id: $status_msg" >> Error_testresults.log
+            ./vast destroy instance "$instance_id" #destroy the instance
+            unset 'active_instance_id[$i]'
+            active_instance_id=( "${active_instance_id[@]}" ) # reindex the array
+            break  # We've modified the array in the loop, so we break and start the loop anew
+	fi
     elif [ "$actual_status" == "created" ]; then
         #Status: Error response from daemon: failed to create task for container: failed to create shim task: OCI runtime create failed
         status_msg=$(get_status_msg "$instance_id")
