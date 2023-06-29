@@ -199,9 +199,7 @@ done
 # Now, we only need IDs. Let's move them to the Offers array.
 Offers=("${maxIDsWithMaxDLPs[@]}")
 
-echo "There are ${#Offers[@]} systems to verify starting"
-
-	echo "There are ${#Offers[@]} systems to verify starting"
+	echo "There are ${#Offers[@]} Offers form systems to verify starting"
         for index in "${!Offers[@]}"; do
 		./vast create instance "${Offers[index]}"  --image  jjziets/vasttest:latest  --jupyter --direct --env '-e TZ=PDT -e XNAME=XX4 -p 5000:5000' --disk 20 --onstart-cmd './remote.sh'
         done
