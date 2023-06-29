@@ -9,6 +9,7 @@
 declare -A machine_ids
 declare -A public_ipaddrs
 declare -a active_instance_id
+declare -A start_times  # Declare an associative array to store start times
 
 function update_machine_id_and_ipaddr {
   # Run the command and save the output
@@ -228,7 +229,15 @@ while (( ${#active_instance_id[@]} > 0 )); do
     actual_status=$(get_actual_status "$instance_id")
     echo "instance=$instance_id $actual_status"
     current_time=$(date +%s)
+    
     if [ "$actual_status" == "running" ]; then
+        # Check if the instance is already in the start_times array
+        if [ -z "${start_times[$instance_id]}" ]; then
+          start_times[$instance_id]=$current_time  # Store the start time for the instance
+        fi
+        # Calculate the running time for the instance
+        start_time="${start_times[$instance_id]}"
+        running_time=$((current_time - start_time))
         public_ip=$(get_public_ipaddr "$instance_id")
 	machine_id=$(get_machine_id "$instance_id")
         public_port=$(python3 get_port_from_instance_id.py  "$instance_id")
@@ -252,7 +261,7 @@ while (( ${#active_instance_id[@]} > 0 )); do
                 unset 'active_instance_id[$i]' #delete this Instance from the list
                 active_instance_id=("${active_instance_id[@]}") # reindex the array
                 break  # We've modified the array in the loop, so we break and start the loop anew
-        elif (( current_time - start_time > 600 )); then #check if it has been waiting for more than 10min
+        elif (( current_time - start_time > 900 ) || (running_time > 120) ); then #check if it has been waiting for more than 15min or if the instance has been running for 2m without any net response
             echo "$machine_id:Time exceeded $(get_status_msg "$instance_id")" >> Error_testresults.log
             ./vast destroy instance "$instance_id" #destroy the instance
             unset 'active_instance_id[$i]'
