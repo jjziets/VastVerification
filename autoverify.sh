@@ -247,14 +247,14 @@ while (( ${#active_instance_id[@]} > 0 )); do
                    touch "$lock_file"
                    trap "rm -f '$lock_file'" EXIT # Add a trap to remove the lock file when the script exits
                    ./machinetester.sh "$public_ip" "$public_port" "$instance_id" "$machine_id" && rm -f "$lock_file" &
-                   echo "$instance_id starting ./machinetester.sh $public_ip $public_port $instance_id $machine_id"
+                   echo "$instance_id starting machinetester $public_ip $public_port $instance_id $machine_id"
                 else
-                    echo "$instance_id already running ./machinetester.sh $public_ip $public_port $instance_id $machine_id"
+                    echo "$instance_id already running machinetester $public_ip $public_port $instance_id $machine_id"
                 fi
                 unset 'active_instance_id[$i]' #delete this Instance from the list
                 active_instance_id=("${active_instance_id[@]}") # reindex the array
                 break  # We've modified the array in the loop, so we break and start the loop anew
-        elif (( current_time - start_time > 900 )); then #check if it has been waiting for more than 15min
+        elif (( current_time - start_time > 600 )); then #check if it has been waiting for more than 10min
             echo "$machine_id:Time exceeded $(get_status_msg "$instance_id")" >> Error_testresults.log
             ./vast destroy instance "$instance_id" #destroy the instance
             unset 'active_instance_id[$i]'
@@ -307,6 +307,7 @@ while (( ${#active_instance_id[@]} > 0 )); do
     echo "done with all instances"
     break
   fi
+  active_instance_id=($(printf "%s\n" "${active_instance_id[@]}" | sort -u)) # This line prints each element of active_instance_id on its own line, sorts the output (removing duplicates with -u), and assigns the result back to active_instance_id.
   #sleep 1
 done
 
