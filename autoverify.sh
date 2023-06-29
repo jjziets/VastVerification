@@ -313,8 +313,8 @@ done
 
 while (( $(pgrep -fc machinetester.sh) > 0 ))
 do
-    echo -n "Number of machinetester.sh processes still running: $(pgrep -fc machinetester.sh)"
-    sleep 1
+    echo "Number of machinetester.sh processes still running: $(pgrep -fc machinetester.sh)"
+    sleep 10
 done
 
 echo "Exit: done with all instances"
