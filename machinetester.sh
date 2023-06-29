@@ -48,35 +48,32 @@ PORT=$2
 instances_id=$3
 machine_id=$4
 
+# Generate a unique lock file name based on the parameters
+lock_file="/tmp/machine_tester_locks_second/lock_${IP}_${PORT}_${instances_id}_${machine_id}"
+mkdir -p "/tmp/machine_tester_locks_second"
+# Check if lock file already exists
+if [ -f "$lock_file" ]; then
+    echo "Lock file exists. Exiting..."
+    exit 1
+fi
+
+# Create lock file
+touch "$lock_file"
+
 SECONDS=0  # reset the SECONDS counter
 
 while true; do
-    # Check if script has been running for longer than 5 minutes
-    if [ $SECONDS -gt 300 ]; then
-        echo "$machine_id Time out while stress testing " >> Error_testresults.log
-        ./vast destroy instance  $instances_id
-        exit 1
-    fi
-
-    # Send an 'EOT' message and receive response
-    message=$(echo "EOT" | nc $IP $PORT)
-#    echo "instances_id:$instances_id machine_id:$machine_id  $message" 
-    # If the message is 'DONE' or starts with 'ERROR', exit the loop
-    if [[ "$message" == "DONE" ]]; then  
-        echo "$machine_id" >> Pass_testresults.log 
-        ./vast destroy instance  $instances_id
-	break
-    elif [[ "$message" == ERROR* ]]; then
-       echo "$machine_id $message" >> Error_testresults.log
-        ./vast destroy instance  $instances_id
-        break
-    fi
-    sleep 1
+    # ...
 done
 
 while [ "$(is_instance "$instance_id")" = "true" ]; do
-     sleep 60
-     ./vast destroy instance  $instances_id
+    sleep 60
+    ./vast destroy instance "$instances_id"
 done
+
+echo "Machine: $machine_id Done with testing remote.sh results $message"
+
+# Remove lock file
+rm "$lock_file"
 
 echo "Machine: $machine_id Done with testeing remote.sh results $message"
