@@ -144,22 +144,22 @@ function get_actual_status {
 #****************************** start of main prcess ********
 
 # create all the instances as needed
-Instances=($(./vast search offers 'verified=false cuda_vers>=12.0  gpu_frac=1 reliability>0.90 direct_port_count>3 pcie_bw>3 inet_down>30 inet_up>30 gpu_ram>7'  -o 'dlperf-'  | sed 's/|/ /'  | awk '{print $1}' )) # get all the instanses number from vast
-#Instances=($(./vast search offers 'verified=false cuda_vers>=12.0  gpu_frac=1 reliability>0.90 direct_port_count>3 pcie_bw>3 inet_down>500 inet_up>500 gpu_ram>7'  -o 'dlperf'  | sed 's/|/ /'  | awk '{print $1}' )) # get all the instanses number from vast
- unset Instances[0] #delte the first index as it containe ID
-	let "cnt=0"
-	echo "There are ${#Instances[@]} systems to verify starting"
-#	pause
-	let "f=0"
-        for index in "${!Instances[@]}"; do
-#                printf "index $index = ${Instances[index]} \n"
-		./vast create instance "${Instances[index]}"  --image  jjziets/vasttest:latest  --jupyter --direct --env '-e TZ=PDT -e XNAME=XX4 -p 5000:5000' --disk 20 --onstart-cmd './remote.sh'
-#		sleep 1
-#		let "cnt=cnt+1"
-#                if [ $cnt -eq 10 ]; then  ### delete this if statment  and uncomment
-#                   break
-#                fi
+Offers=($(./vast search offers 'verified=false cuda_vers>=12.0  gpu_frac=1 reliability>0.90 direct_port_count>3 pcie_bw>3 inet_down>30 inet_up>30 gpu_ram>7'  -o 'dlperf-'  | sed 's/|/ /'  | awk '{print $1}' )) # get all the instanses number from vast
+unset Instances[0] #delte the first index as it contains the title
+
+for offer in "${Offers[@]}"; do
+    echo "$offer"
+done
+
+
+pause 
+
+	echo "There are ${#Offers[@]} systems to verify starting"
+        for index in "${!Offers[@]}"; do
+		./vast create instance "${Offers[index]}"  --image  jjziets/vasttest:latest  --jupyter --direct --env '-e TZ=PDT -e XNAME=XX4 -p 5000:5000' --disk 20 --onstart-cmd './remote.sh'
         done
+
+ 
 #*********************** Get all the instance
 sleep 10
 echo "Logging all the instance progress"
