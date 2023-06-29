@@ -207,7 +207,7 @@ echo "There are ${#Offers[@]} systems to verify starting"
         done
 
 #*********************** Get all the instance
-sleep 10
+#sleep 10
 echo "Logging all the instance progress"
 update_machine_id_and_ipaddr  ## update the machine_id and the ip address
 start_time=$(date +%s) #store the time so that it can be checked
@@ -218,7 +218,7 @@ echo "There are ${#active_instance_id[@]} active instances"
 
 # Lock file base directory
 lock_dir="/tmp/machine_tester_locks"
-
+rm "$lock_dir"/lock*
 mkdir -p "$lock_dir"
 shopt -s nocasematch
 
@@ -231,17 +231,17 @@ while (( ${#active_instance_id[@]} > 0 )); do
     echo "instance=$instance_id $actual_status"
     current_time=$(date +%s)
     if [ "$actual_status" == "running" ]; then
-        machine_id=$(get_machine_id "$instance_id")
+        public_ip=$(get_public_ipaddr "$instance_id")
+	machine_id=$(get_machine_id "$instance_id")
         public_port=$(python3 get_port_from_instance_id.py  "$instance_id")
         exit_code=$?
-        if [ $exit_code -eq 2 ]; then
+	if [ $exit_code -eq 2 ]; then
             echo "$machine_id:No Direct Ports found $(get_status_msg "$instance_id")" >> Error_testresults.log
             ./vast destroy instance "$instance_id" #destroy the instance
             unset 'active_instance_id[$i]'
             active_instance_id=("${active_instance_id[@]}") # reindex the array
             break  # We've modified the array in the loop, so we break and start the loop anew
         elif [ $exit_code -eq 0 ] && [ "$public_port" != "" ]; then
-                public_ip=$(get_public_ipaddr "$instance_id")
                 lock_file="$lock_dir/lock_${public_ip}_${public_port}_${instance_id}_${machine_id}"
                 if [ ! -f "$lock_file" ]; then
                    touch "$lock_file"
@@ -307,7 +307,7 @@ while (( ${#active_instance_id[@]} > 0 )); do
     echo "done with all instances"
     break
   fi
-  sleep 1
+  #sleep 1
 done
 
 
