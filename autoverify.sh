@@ -151,23 +151,44 @@ function get_actual_status {
 tempOffers=($(./vast search offers 'verified=false cuda_vers>=12.0  reliability>0.90 direct_port_count>3 pcie_bw>3 inet_down>30 inet_up>30 gpu_ram>7'  -o 'dlperf-'  | sed 's/|/ /'  | awk '{print $1,$10,$17,$18}'))
 # Delete the first index as it contains the title
 unset tempOffers[0]
+unset tempOffers[1]
+unset tempOffers[2]
+unset tempOffers[3]
+
+#for element in "${tempOffers[@]}"; do
+#    echo $element
+#done
+#pause
+
+#for ((i=0; i<${#tempOffers[@]}; i+=4)); do
+#    echo ${tempOffers[i]} ${tempOffers[i+1]} ${tempOffers[i+2]} ${tempOffers[i+3]}
+#done
+
+#pause
 
 # Declare associative arrays
 declare -A maxDLPs
 declare -A maxIDsWithMaxDLPs
 
 # Parse the tempOffers array
-for ((i=1; i<${#tempOffers[@]}; i+=4)); do
+for ((i=0; i<${#tempOffers[@]}; i+=4)); do
     id=${tempOffers[i]}
     dlp=${tempOffers[i+1]}
     mach_id=${tempOffers[i+2]}
     status=${tempOffers[i+3]}
-    
+
+    # Skip if mach_id is empty
+    if [[ -z "$mach_id" ]]; then
+        continue
+    fi
+
+#    echo "Current mach_id: $mach_id"
+
     # Skip if status is "verified"
     if [[ "$status" == "verified" ]]; then
         continue
     fi
-    
+
     # If the current DLP is higher than the stored one or if mach_id doesn't exist in maxDLPs array
     if [[ -z ${maxDLPs[$mach_id]} || $(bc <<< "$dlp > ${maxDLPs[$mach_id]}") -eq 1 ]]; then
         maxDLPs[$mach_id]=$dlp
