@@ -86,8 +86,6 @@ if flock -n "$lock_file" -c "true"; then
         ./vast destroy instance "$instances_id"
     done
 
-    echo "Machine: $machine_id Done with testing remote.sh results $message"
-
     # Remove the lock file
     rm "$lock_file"
 else
