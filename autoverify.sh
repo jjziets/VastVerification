@@ -104,40 +104,44 @@ function get_status_msg {
 function get_actual_status {
   id=$1
 
-  # Run the command and save the output
-  json_output=$(./vast show instances --raw 2>error.log)
+  # Retry up to 3 times
+  for attempt in {1..3}; do
+    # Run the command and save the output
+    json_output=$(./vast show instances --raw 2>error.log)
 
-  # Check the return status of the command
-  if [ $? -ne 0 ]; then
-    echo "unknown"
-    return
-  fi
-
-  if [[ -z "$json_output" ]]; then
-    echo "No JSON output from command"
-    return
-  fi
-
-  # Convert the JSON array to a Bash array
-  mapfile -t instances < <(echo "$json_output" | jq -r '.[] | @base64')
-
-  # Now we can loop over the instances array
-  for instance in "${instances[@]}"; do
-    # Decode the instance from base64 back to JSON
-    instance_json=$(echo "$instance" | base64 --decode)
-
-    # Extract the ID from the JSON
-    instance_id=$(echo "$instance_json" | jq -r '.id')
-
-    # If this is the instance we're looking for
-    if [ "$instance_id" = "$id" ]; then
-      # Extract and print the actual_status
-      actual_status=$(echo "$instance_json" | jq -r 'if .actual_status != null then .actual_status else "unknown" end')
-      echo "$actual_status"
-      return
+    # Check the return status of the command
+    if [ $? -ne 0 ]; then
+      echo "unknown"
+      continue
     fi
+
+    if [[ -z "$json_output" ]]; then
+      echo "No JSON output from command"
+      continue
+    fi
+
+    # Convert the JSON array to a Bash array
+    mapfile -t instances < <(echo "$json_output" | jq -r '.[] | @base64')
+
+    # Now we can loop over the instances array
+    for instance in "${instances[@]}"; do
+      # Decode the instance from base64 back to JSON
+      instance_json=$(echo "$instance" | base64 --decode)
+
+      # Extract the ID from the JSON
+      instance_id=$(echo "$instance_json" | jq -r '.id')
+
+      # If this is the instance we're looking for
+      if [ "$instance_id" = "$id" ]; then
+        # Extract and print the actual_status
+        actual_status=$(echo "$instance_json" | jq -r 'if .actual_status != null then .actual_status else "unknown" end')
+        echo "$actual_status"
+        return
+      fi
+    done
   done
 
+  # If the function hasn't returned by this point, we've failed all 3 attempts
   echo "unknown"
 }
 
@@ -291,6 +295,13 @@ while (( ${#active_instance_id[@]} > 0 )); do
         fi
     elif [ "$actual_status" == "offline" ]; then
             echo "$machine_id: went offline $(get_status_msg "$instance_id")" >> Error_testresults.log
+            ./vast destroy instance "$instance_id" #destroy the instance
+            unset 'active_instance_id[$i]'
+            active_instance_id=("${active_instance_id[@]}") # reindex the array
+            break  # We've modified the array in the loop, so we break and start the loop anew
+    fi
+    elif [ "$actual_status" == "exited" ]; then
+            echo "$machine_id: instance exited $(get_status_msg "$instance_id")" >> Error_testresults.log
             ./vast destroy instance "$instance_id" #destroy the instance
             unset 'active_instance_id[$i]'
             active_instance_id=("${active_instance_id[@]}") # reindex the array
