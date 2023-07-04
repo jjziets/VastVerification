@@ -141,7 +141,6 @@ function get_actual_status {
   echo "unknown"
 }
 
-
 #****************************** start of main prcess ********
 
 # create all the instances as needed
@@ -155,17 +154,6 @@ unset tempOffers[0]
 unset tempOffers[1]
 unset tempOffers[2]
 unset tempOffers[3]
-
-#for element in "${tempOffers[@]}"; do
-#    echo $element
-#done
-#pause
-
-#for ((i=0; i<${#tempOffers[@]}; i+=4)); do
-#    echo ${tempOffers[i]} ${tempOffers[i+1]} ${tempOffers[i+2]} ${tempOffers[i+3]}
-#done
-
-#pause
 
 # Declare associative arrays
 declare -A maxDLPs
@@ -209,10 +197,10 @@ Offers=("${maxIDsWithMaxDLPs[@]}")
 #sleep 10
 echo "Logging all the instance progress"
 update_machine_id_and_ipaddr  ## update the machine_id and the ip address
-start_time=$(date +%s) #store the time so that it can be checked
+create_time=$(date +%s) #store the time so that it can be checked
 active_instance_id=($(printf "%s\n" "${active_instance_id[@]}" | sort -u)) # This line prints each element of active_instance_id on its own line, sorts the output (removing duplicates with -u), and assigns the result back to active_instance_id.
-echo "$start_time: Error logs for machine_id. Tested  ${#active_instance_id[@]} instances" > Error_testresults.log
-echo "$start_time: Pass logs for machine_id. Tested  ${#active_instance_id[@]} instances" > Pass_testresults.log
+echo "$create_time: Error logs for machine_id. Tested  ${#active_instance_id[@]} instances" > Error_testresults.log
+echo "$create_time: Pass logs for machine_id. Tested  ${#active_instance_id[@]} instances" > Pass_testresults.log
 echo "There are ${#active_instance_id[@]} active instances"
 
 # Lock file base directory
@@ -236,8 +224,8 @@ while (( ${#active_instance_id[@]} > 0 )); do
           start_times[$instance_id]=$current_time  # Store the start time for the instance
         fi
         # Calculate the running time for the instance
-        start_time="${start_times[$instance_id]}"
-        running_time=$((current_time - start_time))
+        start_time="${start_times[$instance_id]}" #get the start time of this instance.
+        running_time=$((current_time - start_time)) # get the runtime of  instance.
         public_ip=$(get_public_ipaddr "$instance_id")
 	machine_id=$(get_machine_id "$instance_id")
         public_port=$(python3 get_port_from_instance_id.py  "$instance_id")
@@ -261,7 +249,7 @@ while (( ${#active_instance_id[@]} > 0 )); do
                 unset 'active_instance_id[$i]' #delete this Instance from the list
                 active_instance_id=("${active_instance_id[@]}") # reindex the array
                 break  # We've modified the array in the loop, so we break and start the loop anew
-        elif (( $current_time - $start_time > 900 ) || ($running_time > 120) ); then #check if it has been waiting for more than 15min or if the instance has been running for 2m without any net response
+        elif (( $current_time - $create_time > 900 )) || (( $running_time > 120 )); then  #check if it has been waiting for more than 15min or if the instance has been running for 2m without any net response
             echo "$machine_id:Time exceeded $(get_status_msg "$instance_id")" >> Error_testresults.log
             ./vast destroy instance "$instance_id" #destroy the instance
             unset 'active_instance_id[$i]'
@@ -269,7 +257,7 @@ while (( ${#active_instance_id[@]} > 0 )); do
             break  # We've modified the array in the loop, so we break and start the loop anew
         fi
     elif [ "$actual_status" == "loading" ]; then
-        if (( $current_time - $start_time > 900 )); then #check if it has been waiting for more than 15min
+        if (( $current_time - $create_time > 900 )); then #check if it has been waiting for more than 15min
             echo "$machine_id:Time exceeded $(get_status_msg "$instance_id")" >> Error_testresults.log
             ./vast destroy instance "$instance_id" #destroy the instance
             unset 'active_instance_id[$i]'
@@ -294,7 +282,7 @@ while (( ${#active_instance_id[@]} > 0 )); do
             unset 'active_instance_id[$i]'
             active_instance_id=("${active_instance_id[@]}") # reindex the array
             break  # We've modified the array in the loop, so we break and start the loop anew
-        elif (( $current_time - $start_time > 900 )); then #check if it has been waiting for more than 10min
+        elif (( $current_time - $create_time> 900 )); then #check if it has been waiting for more than 10min
             echo "$machine_id:Time exceeded $(get_status_msg "$instance_id")" >> Error_testresults.log
             ./vast destroy instance "$instance_id" #destroy the instance
             unset 'active_instance_id[$i]'
