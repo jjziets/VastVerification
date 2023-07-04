@@ -261,7 +261,7 @@ while (( ${#active_instance_id[@]} > 0 )); do
                 unset 'active_instance_id[$i]' #delete this Instance from the list
                 active_instance_id=("${active_instance_id[@]}") # reindex the array
                 break  # We've modified the array in the loop, so we break and start the loop anew
-        elif (( current_time - start_time > 900 ) || (running_time > 120) ); then #check if it has been waiting for more than 15min or if the instance has been running for 2m without any net response
+        elif (( $current_time - $start_time > 900 ) || ($running_time > 120) ); then #check if it has been waiting for more than 15min or if the instance has been running for 2m without any net response
             echo "$machine_id:Time exceeded $(get_status_msg "$instance_id")" >> Error_testresults.log
             ./vast destroy instance "$instance_id" #destroy the instance
             unset 'active_instance_id[$i]'
@@ -269,7 +269,7 @@ while (( ${#active_instance_id[@]} > 0 )); do
             break  # We've modified the array in the loop, so we break and start the loop anew
         fi
     elif [ "$actual_status" == "loading" ]; then
-        if (( current_time - start_time > 900 )); then #check if it has been waiting for more than 15min
+        if (( $current_time - $start_time > 900 )); then #check if it has been waiting for more than 15min
             echo "$machine_id:Time exceeded $(get_status_msg "$instance_id")" >> Error_testresults.log
             ./vast destroy instance "$instance_id" #destroy the instance
             unset 'active_instance_id[$i]'
@@ -294,7 +294,7 @@ while (( ${#active_instance_id[@]} > 0 )); do
             unset 'active_instance_id[$i]'
             active_instance_id=("${active_instance_id[@]}") # reindex the array
             break  # We've modified the array in the loop, so we break and start the loop anew
-        elif (( current_time - start_time > 900 )); then #check if it has been waiting for more than 10min
+        elif (( $current_time - $start_time > 900 )); then #check if it has been waiting for more than 10min
             echo "$machine_id:Time exceeded $(get_status_msg "$instance_id")" >> Error_testresults.log
             ./vast destroy instance "$instance_id" #destroy the instance
             unset 'active_instance_id[$i]'
