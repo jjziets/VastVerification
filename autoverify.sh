@@ -231,15 +231,14 @@ while (( ${#active_instance_id[@]} > 0 )); do
         start_time="${start_times[$instance_id]}" #get the start time of this instance.
         running_time=$((current_time - start_time)) # get the runtime of  instance.
         public_ip=$(get_public_ipaddr "$instance_id")
-	machine_id=$(get_machine_id "$instance_id")
+	    machine_id=$(get_machine_id "$instance_id")
         public_port=$(python3 get_port_from_instance_id.py  "$instance_id")
         exit_code=$?
 	if [ $exit_code -eq 2 ]; then
             echo "$machine_id:No Direct Ports found $(get_status_msg "$instance_id")" >> Error_testresults.log
             ./vast destroy instance "$instance_id" #destroy the instance
-            unset 'active_instance_id[$i]'
-            active_instance_id=("${active_instance_id[@]}") # reindex the array
-            break  # We've modified the array in the loop, so we break and start the loop anew
+            active_instance_id[$i]='0xFFFFFF'
+            continue  # We've modified the array in the loop, so we break and start the loop anew
         elif [ $exit_code -eq 0 ] && [ "$public_port" != "" ]; then
                 lock_file="$lock_dir/lock_${public_ip}_${public_port}_${instance_id}_${machine_id}"
                 if [ ! -f "$lock_file" ]; then
@@ -250,32 +249,28 @@ while (( ${#active_instance_id[@]} > 0 )); do
                 else
                     echo "$instance_id already running machinetester $public_ip $public_port $instance_id $machine_id"
                 fi
-                unset 'active_instance_id[$i]' #delete this Instance from the list
-                active_instance_id=("${active_instance_id[@]}") # reindex the array
-                break  # We've modified the array in the loop, so we break and start the loop anew
-        elif (( $current_time - $create_time > 900 )) || (( $running_time > 120 )); then  #check if it has been waiting for more than 15min or if the instance has been running for 2m without any net response
+                active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
+                continue  # We've modified the array in the loop, so we break and start the loop anew
+        elif (( $current_time - $create_time > 1800 )) || (( $running_time > 120 )); then  #check if it has been waiting for more than 15min or if the instance has been running for 2m without any net response
             echo "$machine_id:Time exceeded $(get_status_msg "$instance_id")" >> Error_testresults.log
             ./vast destroy instance "$instance_id" #destroy the instance
-            unset 'active_instance_id[$i]'
-            active_instance_id=("${active_instance_id[@]}") # reindex the array
-            break  # We've modified the array in the loop, so we break and start the loop anew
+            active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
+            continue  # We've modified the array in the loop, so we break and start the loop anew
         fi
     elif [ "$actual_status" == "loading" ]; then
-        if (( $current_time - $create_time > 900 )); then #check if it has been waiting for more than 15min
+        if (( $current_time - $create_time > 1800 )); then #check if it has been waiting for more than 30min
             echo "$machine_id:Time exceeded $(get_status_msg "$instance_id")" >> Error_testresults.log
             ./vast destroy instance "$instance_id" #destroy the instance
-            unset 'active_instance_id[$i]'
-            active_instance_id=("${active_instance_id[@]}") # reindex the array
-            break  # We've modified the array in the loop, so we break and start the loop anew
+            active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
+            continue  # We've modified the array in the loop, so we break and start the loop anew
         fi
         #Status: Error response from daemon: failed to create task for container: failed to create shim task: OCI runtime create failed
         status_msg=$(get_status_msg "$instance_id")
         if [[ $status_msg == "Error"* ]]; then
             echo "$machine_id: $status_msg" >> Error_testresults.log
             ./vast destroy instance "$instance_id" #destroy the instance
-            unset 'active_instance_id[$i]'
-            active_instance_id=("${active_instance_id[@]}") # reindex the array
-            break  # We've modified the array in the loop, so we break and start the loop anew
+            active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
+            continue  # We've modified the array in the loop, so we break and start the loop anew
         fi
     elif [ "$actual_status" == "created" ]; then
         #Status: Error response from daemon: failed to create task for container: failed to create shim task: OCI runtime create failed
@@ -283,29 +278,31 @@ while (( ${#active_instance_id[@]} > 0 )); do
         if [[ $status_msg == "Error"* ]]; then
             echo "$machine_id: $status_msg" >> Error_testresults.log
             ./vast destroy instance "$instance_id" #destroy the instance
-            unset 'active_instance_id[$i]'
-            active_instance_id=("${active_instance_id[@]}") # reindex the array
-            break  # We've modified the array in the loop, so we break and start the loop anew
-        elif (( $current_time - $create_time> 900 )); then #check if it has been waiting for more than 10min
+            active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
+            continue  # We've modified the array in the loop, so we break and start the loop anew
+        elif (( $current_time - $create_time> 1800 )); then #check if it has been waiting for more than 10min
             echo "$machine_id:Time exceeded $(get_status_msg "$instance_id")" >> Error_testresults.log
             ./vast destroy instance "$instance_id" #destroy the instance
-            unset 'active_instance_id[$i]'
-            active_instance_id=("${active_instance_id[@]}") # reindex the array
-            break  # We've modified the array in the loop, so we break and start the loop anew
+            active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
+            continue  # We've modified the array in the loop, so we break and start the loop anew
         fi
     elif [ "$actual_status" == "offline" ]; then
             echo "$machine_id: went offline $(get_status_msg "$instance_id")" >> Error_testresults.log
             ./vast destroy instance "$instance_id" #destroy the instance
-            unset 'active_instance_id[$i]'
-            active_instance_id=("${active_instance_id[@]}") # reindex the array
-            break  # We've modified the array in the loop, so we break and start the loop anew
-    fi
+            active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
+            continue  # We've modified the array in the loop, so we break and start the loop anew
     elif [ "$actual_status" == "exited" ]; then
             echo "$machine_id: instance exited $(get_status_msg "$instance_id")" >> Error_testresults.log
             ./vast destroy instance "$instance_id" #destroy the instance
-            unset 'active_instance_id[$i]'
-            active_instance_id=("${active_instance_id[@]}") # reindex the array
-            break  # We've modified the array in the loop, so we break and start the loop anew
+            active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
+            continue  # We've modified the array in the loop, so we break and start the loop anew
+    fi
+  done
+  
+    # Now we remove all marked elements
+  for i in "${!active_instance_id[@]}"; do
+    if [ "${active_instance_id[$i]}" == '0xFFFFFF' ]; then
+      unset 'active_instance_id[$i]'
     fi
   done
 
@@ -322,6 +319,21 @@ while (( $(pgrep -fc machinetester.sh) > 0 ))
 do
     echo "Number of machinetester.sh processes still running: $(pgrep -fc machinetester.sh)"
     sleep 10
+done
+
+# List of files to convert
+files=("Error_testresults.log" "Pass_testresults.log")
+
+for file in "${files[@]}"; do
+    # Checking if the file exists
+    if [ ! -f "$file" ]
+    then
+        echo "File $file does not exist."
+        continue
+    fi
+
+    # Reading the file and replacing new lines with commas
+    sed ':a;N;$!ba;s/\n/,/g' "$file" > "${file%.*}_comma.log"
 done
 
 echo "Exit: done with all instances"
