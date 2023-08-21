@@ -148,7 +148,7 @@ function get_actual_status {
 #****************************** start of main prcess ********
 
 # create all the instances as needed
-#Offers=($(./vast search offers 'verified=false cuda_vers>=12.0  gpu_frac=1 reliability>0.90 direct_port_count>3 pcie_bw>3 inet_down>30 inet_up>30 gpu_ram>7'  -o 'dlperf-'  | sed 's/|/ /'  | awk '{print $1}' )) # get all the instanses number from vast
+#Offers=($(./vast search offers 'verified=false cuda_vers>=12.0  gpu_frac=1 reliability>0.90 direct_port_count>3 pcie_bw>3 inet_down>10 inet_up>10 gpu_ram>5'  -o 'dlperf-'  | sed 's/|/ /'  | awk '{print $1}' )) # get all the instanses number from vast
 #unset Offers[0] #delte the first index as it contains the title
 
 # Fetch data from the system
@@ -193,9 +193,13 @@ done
 Offers=("${maxIDsWithMaxDLPs[@]}")
 
 	echo "There are ${#Offers[@]} Offers form systems to verify starting"
-        for index in "${!Offers[@]}"; do
+ 
+       for index in "${!Offers[@]}"; do
 		./vast create instance "${Offers[index]}"  --image  jjziets/vasttest:latest  --jupyter --direct --env '-e TZ=PDT -e XNAME=XX4 -p 5000:5000' --disk 20 --onstart-cmd './remote.sh'
         done
+#               ./vast create instance "${Offers[3]}"  --image  jjziets/vasttest:latest  --jupyter --direct --env '-e TZ=PDT -e XNAME=XX4 -p 5000:5000' --disk 20 --onstart-cmd './remote.sh'
+#               ./vast create instance "${Offers[5]}"  --image  jjziets/vasttest:latest  --jupyter --direct --env '-e TZ=PDT -e XNAME=XX4 -p 5000:5000' --disk 20 --onstart-cmd './remote.sh'
+
 
 #*********************** Get all the instance
 #sleep 10
@@ -251,14 +255,14 @@ while (( ${#active_instance_id[@]} > 0 )); do
                 fi
                 active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
                 continue  # We've modified the array in the loop, so we break and start the loop anew
-        elif (( $current_time - $create_time > 1800 )) || (( $running_time > 120 )); then  #check if it has been waiting for more than 15min or if the instance has been running for 2m without any net response
+        elif (( $current_time - $create_time > 3800 )) || (( $running_time > 120 )); then  #check if it has been waiting for more than 15min or if the instance has been running for 2m without any net response
             echo "$machine_id:Time exceeded $(get_status_msg "$instance_id")" >> Error_testresults.log
             ./vast destroy instance "$instance_id" #destroy the instance
             active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
             continue  # We've modified the array in the loop, so we break and start the loop anew
         fi
     elif [ "$actual_status" == "loading" ]; then
-        if (( $current_time - $create_time > 1800 )); then #check if it has been waiting for more than 30min
+        if (( $current_time - $create_time > 3800 )); then #check if it has been waiting for more than 15min
             echo "$machine_id:Time exceeded $(get_status_msg "$instance_id")" >> Error_testresults.log
             ./vast destroy instance "$instance_id" #destroy the instance
             active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
@@ -272,6 +276,13 @@ while (( ${#active_instance_id[@]} > 0 )); do
             active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
             continue  # We've modified the array in the loop, so we break and start the loop anew
         fi
+        if [[ $status_msg == "Unable to find image"* ]]; then
+            echo "$machine_id: $status_msg" >> Error_testresults.log
+            ./vast destroy instance "$instance_id" #destroy the instance
+            active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
+            continue  # We've modified the array in the loop, so we break and start the loop anew
+        fi
+
     elif [ "$actual_status" == "created" ]; then
         #Status: Error response from daemon: failed to create task for container: failed to create shim task: OCI runtime create failed
         status_msg=$(get_status_msg "$instance_id")
@@ -280,7 +291,7 @@ while (( ${#active_instance_id[@]} > 0 )); do
             ./vast destroy instance "$instance_id" #destroy the instance
             active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
             continue  # We've modified the array in the loop, so we break and start the loop anew
-        elif (( $current_time - $create_time> 1800 )); then #check if it has been waiting for more than 10min
+        elif (( $current_time - $create_time> 3800 )); then #check if it has been waiting for more than 10min
             echo "$machine_id:Time exceeded $(get_status_msg "$instance_id")" >> Error_testresults.log
             ./vast destroy instance "$instance_id" #destroy the instance
             active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
@@ -322,7 +333,7 @@ do
 done
 
 # List of files to convert
-files=("Error_testresults.log" "Pass_testresults.log")
+files=("Pass_testresults.log")
 
 for file in "${files[@]}"; do
     # Checking if the file exists
