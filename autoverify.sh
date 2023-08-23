@@ -12,8 +12,30 @@ declare -a active_instance_id
 declare -A start_times  # Declare an associative array to store start times
 
 function update_machine_id_and_ipaddr {
-  # Run the command and save the output
-  json_output=$(./vast show instances --raw)
+  local retries=3
+  local json_output=""
+  local instances=()
+  local success=0
+
+  # Attempt to get a valid response up to 3 times
+  for (( i=1; i<=$retries; i++ )); do
+    json_output=$(./vast show instances --raw)
+
+    # Check if the JSON output can be parsed by jq
+    if echo "$json_output" | jq -e . >/dev/null 2>&1; then
+      success=1
+      break
+    else
+      echo "Failed to parse JSON response (attempt $i of $retries). Retrying..."
+      sleep 1
+    fi
+  done
+
+  # If all retries failed
+  if [[ $success -eq 0 ]]; then
+    echo "Failed to get a valid JSON response after $retries attempts."
+    return 1
+  fi
 
   # Convert the JSON array to a Bash array
   mapfile -t instances < <(echo "$json_output" | jq -r '.[] | @base64')
@@ -34,6 +56,7 @@ function update_machine_id_and_ipaddr {
     active_instance_id+=("$instance_id") # Adding the instance_id to the array
   done
 }
+
 
 pause () {
 	echo "Press any key to continue"
@@ -73,10 +96,31 @@ function get_public_ipaddr {
 
 
 function get_status_msg {
-  id=$1
+  local id=$1
+  local retries=3
+  local success=0
+  local json_output=""
+  local instances=()
 
-  # Run the command and save the output
-  json_output=$(./vast show instances --raw)
+  # Attempt to get a valid response up to 3 times
+  for (( i=1; i<=$retries; i++ )); do
+    json_output=$(./vast show instances --raw)
+
+    # Check if the JSON output can be parsed by jq
+    if echo "$json_output" | jq -e . >/dev/null 2>&1; then
+      success=1
+      break
+    else
+      echo "Failed to parse JSON response (attempt $i of $retries). Retrying..."
+      sleep 1
+    fi
+  done
+
+  # If all retries failed
+  if [[ $success -eq 0 ]]; then
+    echo "Failed to get a valid JSON response after $retries attempts."
+    return 1
+  fi
 
   # Convert the JSON array to a Bash array
   mapfile -t instances < <(echo "$json_output" | jq -r '.[] | @base64')
@@ -100,6 +144,7 @@ function get_status_msg {
 
   echo "No instance with ID $id found."
 }
+
 
 function get_actual_status {
   id=$1
