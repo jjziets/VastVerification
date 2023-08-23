@@ -282,6 +282,12 @@ while (( ${#active_instance_id[@]} > 0 )); do
             active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
             continue  # We've modified the array in the loop, so we break and start the loop anew
         fi
+	if [[ $status_msg == "Cannot connect to the Docker daemon"* ]]; then
+            echo "$machine_id: $status_msg" >> Error_testresults.log
+            ./vast destroy instance "$instance_id" #destroy the instance
+            active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
+            continue  # We've modified the array in the loop, so we break and start the loop anew
+        fi
 
     elif [ "$actual_status" == "created" ]; then
         #Status: Error response from daemon: failed to create task for container: failed to create shim task: OCI runtime create failed
