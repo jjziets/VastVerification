@@ -55,6 +55,8 @@ function update_machine_id_and_ipaddr {
     public_ipaddrs["$instance_id"]="$public_ipaddr"
     active_instance_id+=("$instance_id") # Adding the instance_id to the array
   done
+   
+
 }
 
 
@@ -207,6 +209,7 @@ unset tempOffers[3]
 # Declare associative arrays
 declare -A maxDLPs
 declare -A maxIDsWithMaxDLPs
+declare -A uniqueMachIDs
 
 # Parse the tempOffers array
 for ((i=0; i<${#tempOffers[@]}; i+=4)); do
@@ -215,10 +218,14 @@ for ((i=0; i<${#tempOffers[@]}; i+=4)); do
     mach_id=${tempOffers[i+2]}
     status=${tempOffers[i+3]}
 
+
     # Skip if mach_id is empty
     if [[ -z "$mach_id" ]]; then
         continue
     fi
+
+    uniqueMachIDs[$mach_id]=1
+
 
 #    echo "Current mach_id: $mach_id"
 
@@ -234,8 +241,34 @@ for ((i=0; i<${#tempOffers[@]}; i+=4)); do
     fi
 done
 
+#-----------------------------------De bugging  ---------------------
+# save the keys of the uniqueMachIDs associative array to a file:
+echo "$create_time: mach_id_list.txt" > mach_id_list.txt
+echo "$create_time: maxIDsWithMaxDLPs.txt" > maxIDsWithMaxDLPs.txt
+echo "$create_time: Offers.txt" > offers.txt
+echo "$create_time: active_instances_id" > active_instances.txt
+echo "$create_time: machine_id active_instances_id" > machinetester.txt
+
+for mach_id in "${!uniqueMachIDs[@]}"; do
+    echo "$mach_id"
+done > mach_id_list.txt
+
+# Save maxIDsWithMaxDLPs to a file
+{
+    for mach_id in "${!maxIDsWithMaxDLPs[@]}"; do
+        echo "$mach_id: ${maxIDsWithMaxDLPs[$mach_id]}"
+    done
+} > maxIDsWithMaxDLPs.txt
+#---------------------------------de Bugging
+
 # Now, we only need IDs. Let's move them to the Offers array.
 Offers=("${maxIDsWithMaxDLPs[@]}")
+
+# Save Offers to a text file
+echo "Saving Offers to offers.txt"
+for offer in "${Offers[@]}"; do
+    echo "$offer"
+done > offers.txt
 
 	echo "There are ${#Offers[@]} Offers form systems to verify starting"
  
@@ -246,11 +279,14 @@ Offers=("${maxIDsWithMaxDLPs[@]}")
 #               ./vast create instance "${Offers[5]}"  --image  jjziets/vasttest:latest  --jupyter --direct --env '-e TZ=PDT -e XNAME=XX4 -p 5000:5000' --disk 20 --onstart-cmd './remote.sh'
 
 
+
 #*********************** Get all the instance
 #sleep 10
 echo "Logging all the instance progress"
 update_machine_id_and_ipaddr  ## update the machine_id and the ip address
 create_time=$(date +%s) #store the time so that it can be checked
+
+echo "${active_instance_id[@]}" > active_instances.txt
 active_instance_id=($(printf "%s\n" "${active_instance_id[@]}" | sort -u)) # This line prints each element of active_instance_id on its own line, sorts the output (removing duplicates with -u), and assigns the result back to active_instance_id.
 echo "$create_time: Error logs for machine_id. Tested  ${#active_instance_id[@]} instances" > Error_testresults.log
 echo "$create_time: Pass logs for machine_id. Tested  ${#active_instance_id[@]} instances" > Pass_testresults.log
@@ -270,7 +306,7 @@ while (( ${#active_instance_id[@]} > 0 )); do
     actual_status=$(get_actual_status "$instance_id")
     echo "instance=$instance_id $actual_status"
     current_time=$(date +%s)
-    
+
     if [ "$actual_status" == "running" ]; then
         # Check if the instance is already in the start_times array
         if [ -z "${start_times[$instance_id]}" ]; then
@@ -296,8 +332,9 @@ while (( ${#active_instance_id[@]} > 0 )); do
                    ./machinetester.sh "$public_ip" "$public_port" "$instance_id" "$machine_id" && rm -f "$lock_file" &
                    echo "$instance_id starting machinetester $public_ip $public_port $instance_id $machine_id"
                 else
-                    echo "$instance_id already running machinetester $public_ip $public_port $instance_id $machine_id"
+                   echo "$instance_id already running machinetester $public_ip $public_port $instance_id $machine_id"
                 fi
+		echo "$machine_id ${active_instance_id[@]} started" > machinetester.txt 
                 active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
                 continue  # We've modified the array in the loop, so we break and start the loop anew
         elif (( $current_time - $create_time > 3800 )) || (( $running_time > 120 )); then  #check if it has been waiting for more than 15min or if the instance has been running for 2m without any net response
@@ -360,7 +397,7 @@ while (( ${#active_instance_id[@]} > 0 )); do
             continue  # We've modified the array in the loop, so we break and start the loop anew
     fi
   done
-  
+
     # Now we remove all marked elements
   for i in "${!active_instance_id[@]}"; do
     if [ "${active_instance_id[$i]}" == '0xFFFFFF' ]; then
