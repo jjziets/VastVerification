@@ -9,6 +9,7 @@ function is_instance {
   # Check the return status of the command
   if [ $? -ne 0 ]; then
     echo "unknown"
+    echo "$machine_id status is unknown" >> Error_testresults.log
     return
   fi
 
@@ -39,6 +40,7 @@ function is_instance {
 # Check if two arguments were provided
 if [ "$#" -ne 4 ]; then
     echo "Usage: ./ <IP> <Port> <instances_id> <machine_id>"
+    echo "$machine_id usage error " >> Error_testresults.log
     exit 1
 fi
 
@@ -90,6 +92,7 @@ if flock -n "$lock_file" -c "true"; then
     rm "$lock_file"
 else
     echo "Lock file exists. Exiting..."
+    echo "$machine_id Lock file exists. Exiting... " >> Error_testresults.log
     exit 1
 fi
 
