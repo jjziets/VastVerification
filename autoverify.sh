@@ -53,22 +53,11 @@ function update_machine_id_and_ipaddr {
     # Add the machine_id and public_ipaddr to the associative arrays
     machine_ids["$instance_id"]="$machine_id"
     public_ipaddrs["$instance_id"]="$public_ipaddr"
-    active_instance_id+=("$instance_id") # Adding the instance_id to the array
   done
-   
 
 }
 
 
-pause () {
-	echo "Press any key to continue"
-	while [ true ] ; do
-	read -t 1 -n 1
-	if [ $? = 0 ] ; then
-		return
-	fi
-	done
-}
 
 function get_machine_id {
   local instance_id=$1
@@ -91,7 +80,6 @@ function get_public_ipaddr {
     # If not, update the associative arrays
     update_machine_id_and_ipaddr
   fi
-
   # Now the public_ipaddr should be in the associative array, so we can return it
   echo "${public_ipaddrs[$instance_id]}"
 }
@@ -114,7 +102,7 @@ function get_status_msg {
       break
     else
       echo "Failed to parse JSON response (attempt $i of $retries). Retrying..."
-      sleep 1
+      sleep 2
     fi
   done
 
@@ -159,11 +147,13 @@ function get_actual_status {
     # Check the return status of the command
     if [ $? -ne 0 ]; then
       echo "unknown"
+      sleep 1
       continue
     fi
 
     if [[ -z "$json_output" ]]; then
       echo "No JSON output from command"
+      sleep 1
       continue
     fi
 
@@ -186,11 +176,15 @@ function get_actual_status {
         return
       fi
     done
+
+    # If we got here, it means we've successfully processed the JSON without issues, so we break out of the retry loop.
+    break
   done
 
   # If the function hasn't returned by this point, we've failed all 3 attempts
   echo "unknown"
 }
+
 
 #****************************** start of main prcess ********
 
@@ -251,16 +245,17 @@ echo "$create_time: machine_id active_instances_id" > machinetester.txt
 
 for mach_id in "${!uniqueMachIDs[@]}"; do
     echo "$mach_id"
-done > mach_id_list.txt
+done >> mach_id_list.txt
 
 # Save maxIDsWithMaxDLPs to a file
 {
     for mach_id in "${!maxIDsWithMaxDLPs[@]}"; do
         echo "$mach_id: ${maxIDsWithMaxDLPs[$mach_id]}"
     done
-} > maxIDsWithMaxDLPs.txt
+} >> maxIDsWithMaxDLPs.txt
 #---------------------------------de Bugging
 
+#*********************** create the instances
 # Now, we only need IDs. Let's move them to the Offers array.
 Offers=("${maxIDsWithMaxDLPs[@]}")
 
@@ -268,26 +263,56 @@ Offers=("${maxIDsWithMaxDLPs[@]}")
 echo "Saving Offers to offers.txt"
 for offer in "${Offers[@]}"; do
     echo "$offer"
-done > offers.txt
+done >> offers.txt
 
-	echo "There are ${#Offers[@]} Offers form systems to verify starting"
- 
-       for index in "${!Offers[@]}"; do
-		./vast create instance "${Offers[index]}"  --image  jjziets/vasttest:latest  --jupyter --direct --env '-e TZ=PDT -e XNAME=XX4 -p 5000:5000' --disk 20 --onstart-cmd './remote.sh'
-        done
-#               ./vast create instance "${Offers[3]}"  --image  jjziets/vasttest:latest  --jupyter --direct --env '-e TZ=PDT -e XNAME=XX4 -p 5000:5000' --disk 20 --onstart-cmd './remote.sh'
-#               ./vast create instance "${Offers[5]}"  --image  jjziets/vasttest:latest  --jupyter --direct --env '-e TZ=PDT -e XNAME=XX4 -p 5000:5000' --disk 20 --onstart-cmd './remote.sh'
+echo "There are ${#Offers[@]} Offers form systems to verify starting"
 
 
+for index in "${!Offers[@]}"; do
+    output=$(./vast create instance "${Offers[index]}"  --image  jjziets/vasttest:latest  --jupyter --direct --env '-e TZ=PDT -e XNAME=XX4 -p 5000:5000' --disk 20 --onstart-cmd './remote.sh')
+    echo "$output"
 
-#*********************** Get all the instance
+    # Check if the output starts with "Started. "
+    if [[ $output == Started.* ]]; then
+        # Strip the non-JSON part (i.e., "Started. ") from the output
+        json_output="${output#Started. }"
+
+        # Convert single quotes to double quotes and uppercase True to lowercase true
+        json_output=$(echo "$json_output" | tr "'" "\"" | sed 's/True/true/g')
+
+        # Check if the operation was a success using jq
+        success=$(echo "$json_output" | jq -r '.success')
+
+        if [[ "$success" == "true" ]]; then
+            # If the operation was a success, extract the new_contract number using jq
+            new_contract=$(echo "$json_output" | jq -r '.new_contract')
+            # Append the extracted number to the contract array
+            active_instance_id+=("$new_contract")
+        fi
+    else
+        # Handle non "Started." outputs here, if needed
+        echo "Skipping non 'Started.' output: $output"
+    fi
+
+    if [[ $index -eq 5 ]]; then
+        break
+    fi
+
+done
+
+
+#*********************** start the testing 
 #sleep 10
 echo "Logging all the instance progress"
-update_machine_id_and_ipaddr  ## update the machine_id and the ip address
+#get list of active_instance_id
+#get_active_instance_ids
+
+#update_machine_id_and_ipaddr  ## update the machine_id and the ip address
 create_time=$(date +%s) #store the time so that it can be checked
 
-echo "${active_instance_id[@]}" > active_instances.txt
-active_instance_id=($(printf "%s\n" "${active_instance_id[@]}" | sort -u)) # This line prints each element of active_instance_id on its own line, sorts the output (removing duplicates with -u), and assigns the result back to active_instance_id.
+echo "${active_instance_id[@]}" >> active_instances.txt
+#active_instance_id=($(printf "%s\n" "${active_instance_id[@]}" | sort -u)) # This line prints each element of active_instance_id on its own line, sorts the output (removing duplicates with -u), and assigns the result back to active_instance_id.
+
 echo "$create_time: Error logs for machine_id. Tested  ${#active_instance_id[@]} instances" > Error_testresults.log
 echo "$create_time: Pass logs for machine_id. Tested  ${#active_instance_id[@]} instances" > Pass_testresults.log
 echo "There are ${#active_instance_id[@]} active instances"
@@ -298,7 +323,6 @@ rm "$lock_dir"/lock*
 mkdir -p "$lock_dir"
 shopt -s nocasematch
 
-## recreate the instance array
 
 while (( ${#active_instance_id[@]} > 0 )); do
   for i in "${!active_instance_id[@]}"; do
@@ -315,10 +339,34 @@ while (( ${#active_instance_id[@]} > 0 )); do
         # Calculate the running time for the instance
         start_time="${start_times[$instance_id]}" #get the start time of this instance.
         running_time=$((current_time - start_time)) # get the runtime of  instance.
-        public_ip=$(get_public_ipaddr "$instance_id")
-	    machine_id=$(get_machine_id "$instance_id")
+	if [ -z "${public_ipaddrs[$instance_id]}" ]; then
+    		# If not, update the associative arrays
+    		update_machine_id_and_ipaddr
+  	fi
+	public_ip=${public_ipaddrs[$instance_id]}
+        #public_ip=$(get_public_ipaddr "$instance_id")
+	# Check if public_ip is empty
+	if [ -z "$public_ip" ]; then
+    		echo "Public IP for instance $instance_id is empty. Skipping..."
+	    	continue
+	fi
+	# Check if the machine_id is in the associative array
+	if [ -z "${machine_ids[$instance_id]}" ]; then
+ 	# If not, update the associative arrays
+ 	   update_machine_id_and_ipaddr
+	fi
+	machine_id=${machine_ids[$instance_id]}
+	# Check if machine_id is empty
+	if [ -z "$machine_id" ]; then
+    		echo "machine_id for instance $instance_id is empty. Skipping..."
+    		continue
+	fi
         public_port=$(python3 get_port_from_instance_id.py  "$instance_id")
         exit_code=$?
+        if [ -z "$public_port" ]; then
+                echo "public_port for instance $instance_id is empty. Skipping..."
+        	continue
+        fi
 	if [ $exit_code -eq 2 ]; then
             echo "$machine_id:No Direct Ports found $(get_status_msg "$instance_id")" >> Error_testresults.log
             ./vast destroy instance "$instance_id" #destroy the instance
@@ -334,7 +382,7 @@ while (( ${#active_instance_id[@]} > 0 )); do
                 else
                    echo "$instance_id already running machinetester $public_ip $public_port $instance_id $machine_id"
                 fi
-		echo "$machine_id ${active_instance_id[@]} started" > machinetester.txt 
+		echo "$machine_id ${active_instance_id[@]} started" >> machinetester.txt
                 active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
                 continue  # We've modified the array in the loop, so we break and start the loop anew
         elif (( $current_time - $create_time > 3800 )) || (( $running_time > 120 )); then  #check if it has been waiting for more than 15min or if the instance has been running for 2m without any net response
@@ -343,7 +391,7 @@ while (( ${#active_instance_id[@]} > 0 )); do
             active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
             continue  # We've modified the array in the loop, so we break and start the loop anew
         fi
-    elif [ "$actual_status" == "loading" ]; then
+        elif [ "$actual_status" == "loading" ]; then
         if (( $current_time - $create_time > 3800 )); then #check if it has been waiting for more than 15min
             echo "$machine_id:Time exceeded $(get_status_msg "$instance_id")" >> Error_testresults.log
             ./vast destroy instance "$instance_id" #destroy the instance
