@@ -2,17 +2,30 @@
 
 function is_instance {
   id=$1
+  retry_count=0
+  max_retries=3
 
-  # Run the command and save the output
-  json_output=$(./vast show instances --raw 2>/dev/null)
+  while [ $retry_count -lt $max_retries ]; do
+    # Run the command and save the output
+    json_output=$(./vast show instances --raw 2>/dev/null)
 
-  # Check the return status of the command
-  if [ $? -ne 0 ]; then
-    echo "unknown"
-    echo "$machine_id status is unknown" >> Error_testresults.log
-    return
-  fi
+    # Check the return status of the command
+    if [ $? -eq 0 ]; then
+      break
+    fi
 
+    # Increment the retry count
+    ((retry_count++))
+
+    # If we've exhausted our retries, exit
+    if [ $retry_count -eq $max_retries ]; then
+      # You can uncomment any of the below lines or add more as per your requirements
+      #echo "unknown"
+      #echo "$machine_id status is unknown" >> Error_testresults.log
+      #./vast destroy instance  $instances_id
+      return
+    fi
+  done
 
   # Convert the JSON array to a Bash array
   mapfile -t instances < <(echo "$json_output" | jq -r '.[] | @base64')
@@ -36,6 +49,7 @@ function is_instance {
 
   echo "false"
 }
+
 
 # Check if two arguments were provided
 if [ "$#" -ne 4 ]; then
@@ -70,8 +84,8 @@ if flock -n "$lock_file" -c "true"; then
     message=$(echo "EOT" | nc $IP $PORT)
 #    echo "instances_id:$instances_id machine_id:$machine_id  $message" 
     # If the message is 'DONE' or starts with 'ERROR', exit the loop
-    if [[ "$message" == "DONE" ]]; then  
-        echo "$machine_id" >> Pass_testresults.log 
+    if [[ "$message" == "DONE" ]]; then
+        echo "$machine_id" >> Pass_testresults.log
         ./vast destroy instance  $instances_id
 	break
     elif [[ "$message" == ERROR* ]]; then
@@ -83,7 +97,7 @@ if flock -n "$lock_file" -c "true"; then
     done
 
     # Check if the instance is still running
-    while [ "$(is_instance "$instance_id")" = "true" ]; do
+    while [ "$(is_instance "$instances_id")" = "true" ]; do
         sleep 60
         ./vast destroy instance "$instances_id"
     done
