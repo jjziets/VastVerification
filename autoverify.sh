@@ -411,6 +411,8 @@ for (( start=0; start < length; start += step_size )); do
 		    echo "Mark this Instance $instance_id for removal"
 	            continue  # We've modified the array in the loop, so we break and start the loop anew
 	        elif [ $exit_code -eq 0 ]; then
+	 		# Lock file for this script
+			master_lock_file="$lock_dir/master_lock"
                         ./machinetester.sh "$public_ip" "$public_port" "$instance_id" "$machine_id" &
 	                echo "$instance_id: starting machinetester $public_ip $public_port $instance_id $machine_id"
                         echo "$instance_id $machine_id $public_ip $public_port started" >> machinetester.txt
