@@ -288,7 +288,7 @@ done >> mach_id_list.txt
 Offers=("${maxIDsWithMaxDLPs[@]}")
 echo "$(date +%s): Error logs for machine_id. Tested  ${#Offers[@]} instances" > Error_testresults.log
 echo "$(date +%s): Pass logs for machine_id. Tested  ${#Offers[@]} instances" > Pass_testresults.log
-echo "$(date +%s): There are ${#Offers[@]} Offers form systems to verify starting"
+echo "$(date +%s): There are ${#Offers[@]} remaning offers to verify starting"
 echo "$(date +%s) $Offers" > Offers.log
 
 # Lock file base directory
@@ -300,7 +300,7 @@ shopt -s nocasematch
 
 
 while (( ${#active_instance_id[@]} < 10 && ${#Offers[@]} > 0 )) || (( ${#active_instance_id[@]} > 0 )); do
-	echo "There are ${#Offers[@]} Offers form systems to verify starting"
+	echo "There are ${#Offers[@]} remaning offers to verify starting"
 	while (( ${#active_instance_id[@]} < 10 && ${#Offers[@]} > 0 )); do
        		next_offer="${Offers[0]}"  # Get the first offer
         	Offers=("${Offers[@]:1}")  # Remove the first offer from the Offers array
