@@ -50,19 +50,19 @@ function is_instance {
   echo "false"
 }
 
-
-# Check if two arguments were provided
-if [ "$#" -ne 4 ]; then
-    echo "Usage: ./ <IP> <Port> <instances_id> <machine_id>"
-    echo "$machine_id usage error " >> Error_testresults.log
-    exit 1
-fi
-
 # Get the IP and port from command line arguments
 IP=$1
 PORT=$2
 instances_id=$3
 machine_id=$4
+
+
+# Check if two arguments were provided
+if [ "$#" -ne 4 ]; then
+    echo "Usage: ./ <IP> <Port> <instances_id> <machine_id>"
+    echo "$machine_id:$instances_id usage error " >> Error_testresults.log
+    exit 1
+fi
 
 # Generate a unique lock file name based on the parameters
 lock_file="/tmp/machine_tester_locks_second/lock_${IP}_${PORT}_${instances_id}_${machine_id}"
@@ -75,13 +75,13 @@ if flock -n "$lock_file" -c "true"; then
     while true; do
 # Check if script has been running for longer than 5 minutes
     if [ $SECONDS -gt 300 ]; then
-        echo "$machine_id Time out while stress testing " >> Error_testresults.log
+        echo "$machine_id:$instances_id Time out while stress testing " >> Error_testresults.log
         ./vast destroy instance  $instances_id
         exit 1
     fi
 
     # Send an 'EOT' message and receive response
-    message=$(echo "EOT" | nc $IP $PORT)
+    message=$(echo "EOT" | nc -w 5 $IP $PORT)
 #    echo "instances_id:$instances_id machine_id:$machine_id  $message" 
     # If the message is 'DONE' or starts with 'ERROR', exit the loop
     if [[ "$message" == "DONE" ]]; then
@@ -89,7 +89,7 @@ if flock -n "$lock_file" -c "true"; then
         ./vast destroy instance  $instances_id
 	break
     elif [[ "$message" == ERROR* ]]; then
-       echo "$machine_id $message" >> Error_testresults.log
+       echo "$machine_id:$instances_id $message" >> Error_testresults.log
         ./vast destroy instance  $instances_id
         break
     fi
@@ -97,16 +97,18 @@ if flock -n "$lock_file" -c "true"; then
     done
 
     # Check if the instance is still running
-    while [ "$(is_instance "$instances_id")" = "true" ]; do
-        sleep 60
-        ./vast destroy instance "$instances_id"
-    done
+	instance_check_time=0
+	while [ "$(is_instance "$instances_id")" = "true" ] && [ $instance_check_time -lt 300 ]; do
+    	sleep 60
+    	((instance_check_time+=60))
+    	./vast destroy instance "$instances_id"
+	done
 
     # Remove the lock file
     rm "$lock_file"
 else
     echo "Lock file exists. Exiting..."
-    echo "$machine_id Lock file exists. Exiting... " >> Error_testresults.log
+    echo "$machine_id:$instances_id Lock file exists. Exiting... " >> Error_testresults.log
     exit 1
 fi
 
