@@ -299,9 +299,9 @@ shopt -s nocasematch
 
 
 
-while (( ${#active_instance_id[@]} < 10 && ${#Offers[@]} > 0 )) || (( ${#active_instance_id[@]} > 0 )); do
+while (( ${#active_instance_id[@]} < 20 && ${#Offers[@]} > 0 )) || (( ${#active_instance_id[@]} > 0 )); do
 	echo "There are ${#Offers[@]} remaning offers to verify starting"
-	while (( ${#active_instance_id[@]} < 10 && ${#Offers[@]} > 0 )); do
+	while (( ${#active_instance_id[@]} < 20 && ${#Offers[@]} > 0 )); do
        		next_offer="${Offers[0]}"  # Get the first offer
         	Offers=("${Offers[@]:1}")  # Remove the first offer from the Offers array
             output=$(./vast create instance "$next_offer"  --image  jjziets/vasttest:latest  --jupyter --direct --env '-e TZ=PDT -e XNAME=XX4 -p 5000:5000' --disk 20 --onstart-cmd './remote.sh')
