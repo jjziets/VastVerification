@@ -32,7 +32,7 @@ def get_host_port_from_instance_id(instance_id, attempts=5, initial_delay=1):
 
         for instance in data:
             if instance['id'] == int(instance_id):
-                if '5000/tcp' in instance['ports']:
+                if 'ports' in instance and '5000/tcp' in instance['ports']:
                     #print(f'Host port for instance {instance_id} on 5000/tcp: {instance["ports"]["5000/tcp"][0]["HostPort"]}')
                     print(f'{instance["ports"]["5000/tcp"][0]["HostPort"]}')
                     return
