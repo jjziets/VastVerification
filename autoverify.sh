@@ -135,6 +135,39 @@ function get_status_msg {
   echo "No instance with ID $id found."
 }
 
+#check if the instances exist 
+function search_instance  {
+    local target_id="$1"
+    local max_retries=3
+    local retry_count=0
+    local instances
+    local found="false"
+
+    while [ $retry_count -lt $max_retries ]; do
+        instances=$(./vast show instances --raw)
+        # Exit if the command fails
+        if [ $? -ne 0 ]; then
+            echo "Error retrieving instances"
+            exit 1
+        fi
+
+        # Check if the ID exists using jq
+        id_exists=$(echo "$instances" | jq --arg TARGET "$target_id" 'any(.[]; .id == ($TARGET|tonumber))')
+
+        if [ "$id_exists" == "true" ]; then
+            found="true"
+            break
+        fi
+
+        ((retry_count++))
+    done
+
+    echo "$found"
+}
+
+
+
+
 
 function get_actual_status {
   id=$1
@@ -191,6 +224,8 @@ function get_actual_status {
 # create all the instances as needed
 #Offers=($(./vast search offers 'verified=false cuda_vers>=12.0  gpu_frac=1 reliability>0.90 direct_port_count>3 pcie_bw>3 inet_down>10 inet_up>10 gpu_ram>5'  -o 'dlperf-'  | sed 's/|/ /'  | awk '{print $1}' )) # get all the instanses number from vast
 #unset Offers[0] #delte the first index as it contains the title
+./destroy_all_instances.sh
+
 
 # Fetch data from the system
 tempOffers=($(./vast search offers 'verified=false cuda_vers>=12.0  reliability>0.90 direct_port_count>3 pcie_bw>3 inet_down>30 inet_up>30 gpu_ram>7'  -o 'dlperf-'  | sed 's/|/ /'  | awk '{print $1,$10,$17,$18}'))
@@ -258,10 +293,11 @@ done >> mach_id_list.txt
 #*********************** create the instances
 # Now, we only need IDs. Let's move them to the Offers array.
 Offers=("${maxIDsWithMaxDLPs[@]}")
-
+echo "$create_time: Error logs for machine_id. Tested  ${#Offers[@]} instances" > Error_testresults.log
+echo "$create_time: Pass logs for machine_id. Tested  ${#Offers[@]} instances" > Pass_testresults.log
 echo "There are ${#Offers[@]} Offers form systems to verify starting"
 
-step_size=20   # the basch size is to reduce the concurent instances running
+step_size=10   # the basch size is to reduce the concurent instances running
 length=${#Offers[@]}  # get the total lengint 
 
 for (( start=0; start < length; start += step_size )); do
@@ -307,8 +343,8 @@ for (( start=0; start < length; start += step_size )); do
 	echo "${active_instance_id[@]}" >> active_instances.txt
 	#active_instance_id=($(printf "%s\n" "${active_instance_id[@]}" | sort -u)) # This line prints each element of active_instance_id on its own line, sorts the output (removing duplicates with -u), and assigns the result back to active_instance_id.
 
-	echo "$create_time: Error logs for machine_id. Tested  ${#active_instance_id[@]} instances" > Error_testresults.log
-	echo "$create_time: Pass logs for machine_id. Tested  ${#active_instance_id[@]} instances" > Pass_testresults.log
+#	echo "$create_time: Error logs for machine_id. Tested  ${#active_instance_id[@]} instances" > Error_testresults.log
+#	echo "$create_time: Pass logs for machine_id. Tested  ${#active_instance_id[@]} instances" > Pass_testresults.log
 	echo "There are ${#active_instance_id[@]} active instances"
 
 	# Lock file base directory
@@ -335,10 +371,10 @@ for (( start=0; start < length; start += step_size )); do
 	        running_time=$((current_time - start_time)) # get the runtime of  instance.
 		if [ -z "${public_ipaddrs[$instance_id]}" ]; then
     		# If not, update the associative arrays
+			echo "Public IP for instance $instance_id is empty. Updating"
 	    		update_machine_id_and_ipaddr
 	  	fi
 		public_ip=${public_ipaddrs[$instance_id]}
-	        #public_ip=$(get_public_ipaddr "$instance_id")
 		# Check if public_ip is empty
 		if [ -z "$public_ip" ]; then
 	    		echo "Public IP for instance $instance_id is empty. Skipping..."
@@ -347,7 +383,8 @@ for (( start=0; start < length; start += step_size )); do
 		# Check if the machine_id is in the associative array
 		if [ -z "${machine_ids[$instance_id]}" ]; then
 	 	# If not, update the associative arrays
-	 	   update_machine_id_and_ipaddr
+			echo "machine_id for instance $instance_id is empty. updating"
+	 	   	update_machine_id_and_ipaddr
 		fi
 		machine_id=${machine_ids[$instance_id]}
 		# Check if machine_id is empty
@@ -365,24 +402,28 @@ for (( start=0; start < length; start += step_size )); do
 	            echo "$machine_id:No Direct Ports found $(get_status_msg "$instance_id")" >> Error_testresults.log
 	            ./vast destroy instance "$instance_id" #destroy the instance
 	            active_instance_id[$i]='0xFFFFFF'
+		    echo "Mark this Instance $instance_id for removal"
 	            continue  # We've modified the array in the loop, so we break and start the loop anew
-	        elif [ $exit_code -eq 0 ] && [ "$public_port" != "" ]; then
-	                lock_file="$lock_dir/lock_${public_ip}_${public_port}_${instance_id}_${machine_id}"
-	                if [ ! -f "$lock_file" ]; then
-	                   touch "$lock_file"
-	                   trap "rm -f '$lock_file'" EXIT # Add a trap to remove the lock file when the script exits
-	                   ./machinetester.sh "$public_ip" "$public_port" "$instance_id" "$machine_id" && rm -f "$lock_file" &
+	        elif [ $exit_code -eq 0 ]; then
+#	                lock_file="$lock_dir/lock_${public_ip}_${public_port}_${instance_id}_${machine_id}"
+#	                if [ ! -f "$lock_file" ]; then
+#	                   touch "$lock_file"
+#	                   trap "rm -f '$lock_file'" EXIT # Add a trap to remove the lock file when the script exits
+#	                   ./machinetester.sh "$public_ip" "$public_port" "$instance_id" "$machine_id" && rm -f "$lock_file" &
+                          ./machinetester.sh "$public_ip" "$public_port" "$instance_id" "$machine_id" &
 	                   echo "$instance_id starting machinetester $public_ip $public_port $instance_id $machine_id"
-	                else
-	                   echo "$instance_id already running machinetester $public_ip $public_port $instance_id $machine_id"
-	                fi
-			echo "$machine_id ${active_instance_id[@]} started" >> machinetester.txt
-	                active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
+                           echo "$instance_id $machine_id $public_ip $public_port started" >> machinetester.txt
+#	                else
+#	                   echo "$instance_id already running machinetester $public_ip $public_port $instance_id $machine_id"
+#	                fi
+			active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
+			echo "Mark this Instance $instance_id for removal"
 	                continue  # We've modified the array in the loop, so we break and start the loop anew
-	        elif (( $current_time - $create_time > 3800 )) || (( $running_time > 120 )); then  #check if it has been waiting for more than 15min or if the instance has been running for 2m without any net response
+	        elif (( $current_time - $create_time > 3800 )) || (( $running_time > 180 )); then  #check if it has been waiting for more than 15min or if the instance has been running for 2m without any net response
 	            echo "$machine_id:Time exceeded $(get_status_msg "$instance_id")" >> Error_testresults.log
 	            ./vast destroy instance "$instance_id" #destroy the instance
 	            active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
+                    echo "Mark this Instance $instance_id for removal"
 	            continue  # We've modified the array in the loop, so we break and start the loop anew
 	        fi
 	        elif [ "$actual_status" == "loading" ]; then
@@ -390,6 +431,7 @@ for (( start=0; start < length; start += step_size )); do
 	            echo "$machine_id:Time exceeded $(get_status_msg "$instance_id")" >> Error_testresults.log
 	            ./vast destroy instance "$instance_id" #destroy the instance
 	            active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
+                    echo "Mark this Instance $instance_id for removal"
 	            continue  # We've modified the array in the loop, so we break and start the loop anew
 	        fi
 	        #Status: Error response from daemon: failed to create task for container: failed to create shim task: OCI runtime create failed
@@ -398,18 +440,21 @@ for (( start=0; start < length; start += step_size )); do
 	            echo "$machine_id: $status_msg" >> Error_testresults.log
 	            ./vast destroy instance "$instance_id" #destroy the instance
 	            active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
+                    echo "Mark this Instance $instance_id for removal"
 	            continue  # We've modified the array in the loop, so we break and start the loop anew
 	        fi
 	        if [[ $status_msg == "Unable to find image"* ]]; then
 	            echo "$machine_id: $status_msg" >> Error_testresults.log
 	            ./vast destroy instance "$instance_id" #destroy the instance
 	            active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
+                    echo "Mark this Instance $instance_id for removal"
 	            continue  # We've modified the array in the loop, so we break and start the loop anew
 	        fi
 		if [[ $status_msg == "Cannot connect to the Docker daemon"* ]]; then
 	            echo "$machine_id: $status_msg" >> Error_testresults.log
 	            ./vast destroy instance "$instance_id" #destroy the instance
 	            active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
+                    echo "Mark this Instance $instance_id for removal"
 	            continue  # We've modified the array in the loop, so we break and start the loop anew
 	        fi
 	    elif [ "$actual_status" == "created" ]; then
@@ -419,23 +464,36 @@ for (( start=0; start < length; start += step_size )); do
 	            echo "$machine_id: $status_msg" >> Error_testresults.log
 	            ./vast destroy instance "$instance_id" #destroy the instance
 	            active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
+                    echo "Mark this Instance $instance_id for removal"
 	            continue  # We've modified the array in the loop, so we break and start the loop anew
        		 elif (( $current_time - $create_time> 3800 )); then #check if it has been waiting for more than 10min
         	 echo "$machine_id:Time exceeded $(get_status_msg "$instance_id")" >> Error_testresults.log
            	 ./vast destroy instance "$instance_id" #destroy the instance
  	           active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
+                   echo "Mark this Instance $instance_id for removal"
  	           continue  # We've modified the array in the loop, so we break and start the loop anew
  	       fi
  	   elif [ "$actual_status" == "offline" ]; then
 	            echo "$machine_id: went offline $(get_status_msg "$instance_id")" >> Error_testresults.log
 	            ./vast destroy instance "$instance_id" #destroy the instance
 	            active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
+                    echo "Mark this Instance $instance_id for removal"
 	            continue  # We've modified the array in the loop, so we break and start the loop anew
 	    elif [ "$actual_status" == "exited" ]; then
 	            echo "$machine_id: instance exited $(get_status_msg "$instance_id")" >> Error_testresults.log
 	            ./vast destroy instance "$instance_id" #destroy the instance
 	            active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
+                    echo "Mark this Instance $instance_id for removal"
 	            continue  # We've modified the array in the loop, so we break and start the loop anew
+            elif [ "$actual_status" == "unknown" ]; then
+		if [ "$(search_instance "$instance_id")" == "false" ]; then
+			echo "Instance with ID: $instance_id not found."
+                	active_instance_id[$i]='0xFFFFFF'  # Mark this Instance for removal
+			echo "Mark this Instance $instance_id for removal"
+			continue # We've modified the array in the loop, so we break and start the loop anew
+		else
+			 echo "Instance with ID: $instance_id was found."
+		fi
 	    fi
 	  done
 
@@ -445,12 +503,14 @@ for (( start=0; start < length; start += step_size )); do
      	       unset 'active_instance_id[$i]'
     	    fi
   	  done
+	 active_instance_id=( "${active_instance_id[@]}" ) # reindex
 
  	 if (( ${#active_instance_id[@]} == 0 )); then
  	   echo "done with all instances"
  	   break
  	 fi
- 	 active_instance_id=($(printf "%s\n" "${active_instance_id[@]}" | sort -u)) # This line prints each element of active_instance_id on its own line, sorts the output (removing duplicates with -u), and assigns the result back to active_instance_id.
+
+# 	 active_instance_id=($(printf "%s\n" "${active_instance_id[@]}" | sort -u)) # This line prints each element of active_instance_id on its own line, sorts the output (removing duplicates with -u), and assigns the result back to active_instance_id.
 	  #sleep 1
 	done
 
@@ -463,6 +523,7 @@ for (( start=0; start < length; start += step_size )); do
 
 echo "Completed $start of $length offers done"
 
+./destroy_all_instances.sh
 done
 
 # List of files to convert
