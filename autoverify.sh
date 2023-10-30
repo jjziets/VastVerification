@@ -139,7 +139,7 @@ function get_status_msg {
 #check if the instances exist 
 function search_instance  {
     local target_id="$1"
-    local max_retries=3
+    local max_retries=4
     local retry_count=0
     local instances
     local found="false"
@@ -161,6 +161,7 @@ function search_instance  {
         fi
 
         ((retry_count++))
+	sleep 10
     done
 
     echo "$found"
@@ -507,7 +508,7 @@ done
 
 
 ./destroy_all_instances.sh
-done
+
 
 # List of files to convert
 files=("Pass_testresults.log")
