@@ -480,14 +480,14 @@ for (( start=0; start < length; start += step_size )); do
  	           continue  # We've modified the array in the loop, so we break and start the loop anew
  	       fi
  	   elif [ "$actual_status" == "offline" ]; then
-	            echo "$machine_id:$instance_id  went offline get_status_msg $instance_id)" >> Error_testresults.log
+	            echo "$machine_id:$instance_id  went offline )" >> Error_testresults.log
 	            ./vast destroy instance "$instance_id" #destroy the instance
 		    to_remove+=("$instance_id")
 	            #active_instance_id[$i]='0'  # Mark this Instance for removal
                     echo "Mark this Instance $instance_id for removal"
 	            continue  # We've modified the array in the loop, so we break and start the loop anew
 	    elif [ "$actual_status" == "exited" ]; then
-	            echo "$machine_id:$instance_id  instance exited get_status_msg $instance_id" >> Error_testresults.log
+	            echo "$machine_id:$instance_id  instance exited" >> Error_testresults.log
 	            ./vast destroy instance "$instance_id" #destroy the instance
 	            to_remove+=("$instance_id")
 		    #active_instance_id[$i]='0'  # Mark this Instance for removal
@@ -496,7 +496,7 @@ for (( start=0; start < length; start += step_size )); do
             elif [ "$actual_status" == "unknown" ]; then
 		if [ "$(search_instance "$instance_id")" == "false" ]; then
 			echo "$machine_id:$instance_id Instance with ID: $instance_id not found."
-			echo "$machine_id:$instance_id  instance exited get_status_msg $instance_id" >> Error_testresults.log
+			echo "$machine_id:$instance_id  instance unknown not found" >> Error_testresults.log
                        ./vast destroy instance "$instance_id" #destroy the instance
                 	to_remove+=("$instance_id")
 			#active_instance_id[$i]='0'  # Mark this Instance for removal
@@ -528,7 +528,6 @@ for (( start=0; start < length; start += step_size )); do
     	sleep 10
 	done
 
-echo "Completed $start of $length offers done"
 
 ./destroy_all_instances.sh
 done
