@@ -10,6 +10,7 @@ declare -A machine_ids
 declare -A public_ipaddrs
 declare -a active_instance_id
 declare -A start_times  # Declare an associative array to store start times
+declare -A CreateTime
 
 function update_machine_id_and_ipaddr {
   local retries=3
@@ -270,14 +271,6 @@ for ((i=0; i<${#tempOffers[@]}; i+=4)); do
     fi
 done
 
-#-----------------------------------De bugging  ---------------------
-# save the keys of the uniqueMachIDs associative array to a file:
-echo "$create_time: mach_id_list.txt" > mach_id_list.txt
-echo "$create_time: maxIDsWithMaxDLPs.txt" > maxIDsWithMaxDLPs.txt
-echo "$create_time: Offers.txt" > offers.txt
-echo "$create_time: active_instances_id" > active_instances.txt
-echo "$create_time: machine_id active_instances_id" > machinetester.txt
-
 for mach_id in "${!uniqueMachIDs[@]}"; do
     echo "$mach_id"
 done >> mach_id_list.txt
@@ -293,30 +286,33 @@ done >> mach_id_list.txt
 #*********************** create the instances
 # Now, we only need IDs. Let's move them to the Offers array.
 Offers=("${maxIDsWithMaxDLPs[@]}")
-echo "$create_time: Error logs for machine_id. Tested  ${#Offers[@]} instances" > Error_testresults.log
-echo "$create_time: Pass logs for machine_id. Tested  ${#Offers[@]} instances" > Pass_testresults.log
+echo "$CreateTime[$instance_id]: Error logs for machine_id. Tested  ${#Offers[@]} instances" > Error_testresults.log
+echo "$CreateTime[$instance_id]: Pass logs for machine_id. Tested  ${#Offers[@]} instances" > Pass_testresults.log
 echo "There are ${#Offers[@]} Offers form systems to verify starting"
 
-step_size=10   # the basch size is to reduce the concurent instances running
-length=${#Offers[@]}  # get the total lengint 
+# Lock file base directory
+lock_dir="/tmp/machine_tester_locks"
+rm "$lock_dir"/lock*
+mkdir -p "$lock_dir"
+shopt -s nocasematch
 
-for (( start=0; start < length; start += step_size )); do
 
-	#for index in "${!Offers[@]}"; do
-	echo "Completed $start of $length offers done, starting next batch"
-	for (( index=start; index < start + step_size && index < length; index++ )); do
-	    output=$(./vast create instance "${Offers[index]}"  --image  jjziets/vasttest:latest  --jupyter --direct --env '-e TZ=PDT -e XNAME=XX4 -p 5000:5000' --disk 20 --onstart-cmd './remote.sh')
-	    echo "$output"
+while (( ${#active_instance_id[@]} < 20 && ${#Offers[@]} > 0 )) || (( ${#active_instance_id[@]} > 0 )); do
+	echo "There are ${#Offers[@]} Offers form systems to verify starting"
+	while (( ${#active_instance_id[@]} < 20 && ${#Offers[@]} > 0 )); do
+       		next_offer="${Offers[0]}"  # Get the first offer
+        	Offers=("${Offers[@]:1}")  # Remove the first offer from the Offers array
+                output=$(./vast create instance "${Offers[index]}"  --image  jjziets/vasttest:latest  --jupyter --direct --env '-e TZ=PDT -e XNAME=XX4 -p 5000:5000' --disk 20 --onstart-cmd './remote.sh')
+	    	echo "$output"
 
 	    # Check if the output starts with "Started. "
 	    if [[ $output == Started.* ]]; then
 	        # Strip the non-JSON part (i.e., "Started. ") from the output
 	        json_output="${output#Started. }"
-
+	 
 	        # Convert single quotes to double quotes and uppercase True to lowercase true
 		#json_output=$(echo "$json_output" | sed "s/'/\"/g" | sed 's/True/true/g')
 		json_output=$(echo "$json_output" | sed 's/'\''/"/g' | sed 's/True/true/g')
-
 
 	        # Check if the operation was a success using jq
 	        success=$(echo "$json_output" | jq -r '.success')
@@ -326,6 +322,7 @@ for (( start=0; start < length; start += step_size )); do
 	            new_contract=$(echo "$json_output" | jq -r '.new_contract')
 	            # Append the extracted number to the contract array
 	            active_instance_id+=("$new_contract")
+	     	    CreateTime[$new_contract"]=(date +%s)
 	        fi
 	    else
         	# Handle non "Started." outputs here, if needed
@@ -334,45 +331,21 @@ for (( start=0; start < length; start += step_size )); do
 	done
 
 	#*********************** start the testing 
-	#sleep 10
-	echo "Logging all the instance progress"
-	#get list of active_instance_id
-	#get_active_instance_ids
-
 	#update_machine_id_and_ipaddr  ## update the machine_id and the ip address
-	create_time=$(date +%s) #store the time so that it can be checked
-
-	echo "${active_instance_id[@]}" >> active_instances.txt
-	#active_instance_id=($(printf "%s\n" "${active_instance_id[@]}" | sort -u)) # This line prints each element of active_instance_id on its own line, sorts the output (removing duplicates with -u), and assigns the result back to active_instance_id.
-
-#	echo "$create_time: Error logs for machine_id. Tested  ${#active_instance_id[@]} instances" > Error_testresults.log
-#	echo "$create_time: Pass logs for machine_id. Tested  ${#active_instance_id[@]} instances" > Pass_testresults.log
-	echo "There are ${#active_instance_id[@]} active instances"
-
-	# Lock file base directory
-	lock_dir="/tmp/machine_tester_locks"
-	rm "$lock_dir"/lock*
-	mkdir -p "$lock_dir"
-	shopt -s nocasematch
-
-
-	while (( ${#active_instance_id[@]} > 0 )); do
-	  echo "${active_instance_id[@]}"
-	  to_remove=()  # Declare this before your loop starts
-	  for i in "${!active_instance_id[@]}"; do
+        to_remove=()  # Declare this before your loop starts
+	for i in "${!active_instance_id[@]}"; do
+ 	    current_time=$(date +%s)
 	    instance_id="${active_instance_id[$i]}"
 	    actual_status=$(get_actual_status "$instance_id")
 	    echo "$instance_id $actual_status"
-	    current_time=$(date +%s)
-
 	    if [ "$actual_status" == "running" ]; then
 	        # Check if the instance is already in the start_times array
 	        if [ -z "${start_times[$instance_id]}" ]; then
-	          start_times[$instance_id]=$current_time  # Store the start time for the instance
+	          start_times[$instance_id]=$(date +%s)  # Store the start time for the instance
 	        fi
 	        # Calculate the running time for the instance
 	        start_time="${start_times[$instance_id]}" #get the start time of this instance.
-	        running_time=$((current_time - start_time)) # get the runtime of  instance.
+	        running_time=$((CreateTime[$instance_id] - start_time)) # get the runtime of  instance.
 		if [ -z "${public_ipaddrs[$instance_id]}" ]; then
     		# If not, update the associative arrays
 			echo "Public IP for instance $instance_id is empty. Updating"
@@ -420,7 +393,7 @@ for (( start=0; start < length; start += step_size )); do
 			#active_instance_id[$i]='0'  # Mark this Instance for removal
 			echo "Mark this Instance $instance_id for removal"
 	                continue  # We've modified the array in the loop, so we break and start the loop anew
-	        elif (( $current_time - $create_time > 3800 )) || (( $running_time > 180 )); then  #check if it has been waiting for more than 15min or if the instance has been running for 2m without any net response
+	        elif (( $current_time - $CreateTime[$instance_id] > 3800 )) || (( $running_time > 180 )); then  #check if it has been waiting for more than 15min or if the instance has been running for 2m without any net response
 	            echo "$machine_id:$instance_id Time exceeded get_status_msg $instance_id" >> Error_testresults.log
 	            ./vast destroy instance "$instance_id" #destroy the instance
 	            to_remove+=("$instance_id")
@@ -429,7 +402,7 @@ for (( start=0; start < length; start += step_size )); do
 	            continue  # We've modified the array in the loop, so we break and start the loop anew
 	        fi
 	        elif [ "$actual_status" == "loading" ]; then
-	        if (( $current_time - $create_time > 3800 )); then #check if it has been waiting for more than 15min
+	        if (( $current_time - $CreateTime[$instance_id] > 3800 )); then #check if it has been waiting for more than 15min
 	            echo "$machine_id:$instance_id Time exceeded get_status_msg = loading" >> Error_testresults.log
 	            ./vast destroy instance "$instance_id" #destroy the instance
 		    to_remove+=("$instance_id")
@@ -473,7 +446,7 @@ for (( start=0; start < length; start += step_size )); do
 	            #active_instance_id[$i]='0'  # Mark this Instance for removal
                     echo "Mark this Instance $instance_id for removal"
 	            continue  # We've modified the array in the loop, so we break and start the loop anew
-       		 elif (( $current_time - $create_time> 3800 )); then #check if it has been waiting for more than 10min
+       		 elif (( $current_time - $CreateTime[$instance_id]> 3800 )); then #check if it has been waiting for more than 10min
         	    echo "$machine_id:$instance_id Time exceeded get_status_msg $instance_id" >> Error_testresults.log
            	    ./vast destroy instance "$instance_id" #destroy the instance
 		    to_remove+=("$instance_id")
@@ -508,7 +481,7 @@ for (( start=0; start < length; start += step_size )); do
 			 echo "Instance with ID: $instance_id was found."
 		fi
 	    fi
-	  done
+#	  done
 
     # Now we remove all marked elements
 
@@ -516,12 +489,15 @@ for (( start=0; start < length; start += step_size )); do
     	active_instance_id=(${active_instance_id[@]/$remove_id/})  # Remove the ID from the array
 	done
 
-	if (( ${#active_instance_id[@]} == 0 )); then
-    		echo "done with all instances"
-  		break
-	fi
+	#if (( ${#active_instance_id[@]} == 0 ) ); then #need to check that there is no more offers left to create
+    #		echo "done with all instances"
+  	#	break
+	#fi
 
-	done
+done #Outer offer while
+
+echo "done with all instances and offers"
+
 
 
 	while (( $(pgrep -fc machinetester.sh) > 0 ))
