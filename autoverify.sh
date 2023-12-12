@@ -450,7 +450,7 @@ while (( ${#active_instance_id[@]} < 20 && ${#Offers[@]} > 0 )) || (( ${#active_
 	            #active_instance_id[$i]='0'  # Mark this Instance for removal
                     echo "Mark this Instance $instance_id for removal"
 	            continue  # We've modified the array in the loop, so we break and start the loop anew
-       		 elif (( $current_time - $CreateTime[$instance_id]> 3800 )); then #check if it has been waiting for more than 10min
+       		 elif (( $current_time - ${CreateTime[$instance_id]} > 3800 )); then #check if it has been waiting for more than 10min
         	    echo "$machine_id:$instance_id Time exceeded get_status_msg $instance_id" >> Error_testresults.log
            	    ./vast destroy instance "$instance_id" #destroy the instance
 		    to_remove+=("$instance_id")
