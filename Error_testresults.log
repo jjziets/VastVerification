@@ -1,0 +1,6 @@
+1710143298: Error logs for machine_id. Tested  245 instances
+17533:10024421 No Direct Ports found get_status_msg = running
+11079:10024409 ERROR 1: system requirements test failed. Reason: System total memory is less than the sum of all the GPUs VRAM.
+20060:10024420 ERROR 1: system requirements test failed. Reason: System total memory is less than the sum of all the GPUs VRAM.
+20060:10024421  instance unknown not found
+17622:10024461 No Direct Ports found get_status_msg = running

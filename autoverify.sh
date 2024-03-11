@@ -230,7 +230,7 @@ function get_actual_status {
 
 
 # Fetch data from the system
-tempOffers=($(./vast search offers 'verified=false cuda_vers>=12.0  reliability>0.90 direct_port_count>3 pcie_bw>3 inet_down>30 inet_up>30 gpu_ram>7'  -o 'dlperf-'  | sed 's/|/ /'  | awk '{print $1,$10,$17,$18}'))
+tempOffers=($(./vast search offers  --limit 65535  'verified=false cuda_vers>=12.0  reliability>0.90 direct_port_count>3 pcie_bw>3 inet_down>10 inet_up>10 gpu_ram>7'  -o 'dlperf-'  | sed 's/|/ /'  | awk '{print $1,$11,$19,$20}'))
 # Delete the first index as it contains the title
 unset tempOffers[0]
 unset tempOffers[1]
@@ -242,6 +242,10 @@ declare -A maxDLPs
 declare -A maxIDsWithMaxDLPs
 declare -A uniqueMachIDs
 
+echo '' > mach_id_list.txt
+echo '' > maxIDsWithMaxDLPs.txt
+
+
 # Parse the tempOffers array
 for ((i=0; i<${#tempOffers[@]}; i+=4)); do
     id=${tempOffers[i]}
@@ -249,6 +253,7 @@ for ((i=0; i<${#tempOffers[@]}; i+=4)); do
     mach_id=${tempOffers[i+2]}
     status=${tempOffers[i+3]}
 
+    echo "Processing ID: $id, DLP: $dlp, Machine ID: $mach_id, Status: $status"
 
     # Skip if mach_id is empty
     if [[ -z "$mach_id" ]]; then
@@ -279,7 +284,8 @@ done >> mach_id_list.txt
 # Save maxIDsWithMaxDLPs to a file
 {
     for mach_id in "${!maxIDsWithMaxDLPs[@]}"; do
-        echo "$mach_id: ${maxIDsWithMaxDLPs[$mach_id]}"
+        echo "$mach_id: ${maxIDsWithMaxDLPs[$mach_id]} DLP: ${maxDLPs[$mach_id]}"
+
     done
 } >> maxIDsWithMaxDLPs.txt
 #---------------------------------de Bugging
@@ -302,6 +308,9 @@ shopt -s nocasematch
 
 while (( ${#active_instance_id[@]} < 20 && ${#Offers[@]} > 0 )) || (( ${#active_instance_id[@]} > 0 )); do
 	echo "There are ${#Offers[@]} remaning offers to verify starting"
+	declare -A machine_ids=()
+	declare -A public_ipaddrs=()
+
 	while (( ${#active_instance_id[@]} < 20 && ${#Offers[@]} > 0 )); do
        		next_offer="${Offers[0]}"  # Get the first offer
         	Offers=("${Offers[@]:1}")  # Remove the first offer from the Offers array
