@@ -6,6 +6,13 @@
 # if the instance status_msg show error or if the instance don't start in 10min time autoverify.sh will destory the instance and write the reason to the Error_testresults.log
 
 
+# Check if exactly one argument is provided
+if [ "$#" -ne 1 ]; then
+    echo "Usage: $0 <machine_id>"
+    exit 1
+fi
+
+
 declare -A machine_ids
 declare -A public_ipaddrs
 declare -a active_instance_id
@@ -230,8 +237,10 @@ function get_actual_status {
 
 
 # Fetch data from the system
-tempOffers=($(./vast search offers  --limit 65535  "verified=false cuda_vers>=12.0  reliability>0.90 direct_port_count>3 pcie_bw>3 inet_down>10 inet_up>10 gpu_ram>7"  -o 'dlperf-'  | sed 's/|/ /'  | awk '{print $1,$11,$19,$20}'))
+tempOffers=($(./vast search offers  --limit 65535  "machine_id=$1 verified=false cuda_vers>=12.0  reliability>0.90 direct_port_count>3 pcie_bw>3 inet_down>10 inet_up>10 gpu_ram>7"  -o 'dlperf-'  | sed 's/|/ /'  | awk '{print $1,$11,$19,$20}'))
 # Delete the first index as it contains the title
+echo $tempOffers
+
 unset tempOffers[0]
 #unset tempOffers[1]
 #unset tempOffers[2]
