@@ -7,6 +7,22 @@ def main():
     # Number of GPUs
     NUM_GPUS = torch.cuda.device_count()
 
+    if NUM_GPUS == 0:
+        print('No GPUs found.')
+        return 1
+
+    # Get the model name of the first GPU
+    first_gpu_model = torch.cuda.get_device_name(0)
+    print(f'First GPU model: {first_gpu_model}')
+
+    # Check that all GPUs are the same model
+    for i in range(1, NUM_GPUS):
+        current_gpu_model = torch.cuda.get_device_name(i)
+        print(f'GPU {i} model: {current_gpu_model}')
+        if current_gpu_model != first_gpu_model:
+            print(f'GPU {i} is not the same model as the first GPU.')
+            return 1
+
     # VRAM of GPUs
     total_vram = sum([torch.cuda.get_device_properties(i).total_memory for i in range(NUM_GPUS)])
 

@@ -230,7 +230,7 @@ function get_actual_status {
 
 
 # Fetch data from the system
-tempOffers=($(./vast search offers  --limit 65535  "cuda_vers>=12.0 verified=any reliability>0.90 direct_port_count>3 pcie_bw>3 inet_down>10 inet_up>10 gpu_ram>7"  -o 'dlperf-'  | sed 's/|/ /'  | awk '{print $1,$11,$19,$20}'))
+tempOffers=($(./vast search offers  --limit 65535  "cuda_vers>=12.4 verified=any reliability>0.90 direct_port_count>3 pcie_bw>3 inet_down>10 inet_up>10 gpu_ram>7"  -o 'dlperf-'  | sed 's/|/ /'  | awk '{print $1,$11,$19,$20}'))
 # Delete the first index as it contains the title
 #unset tempOffers[0]
 #unset tempOffers[1]
