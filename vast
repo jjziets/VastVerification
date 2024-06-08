@@ -36,7 +36,7 @@ except NameError:
 #server_url_default = "https://vast.ai"
 server_url_default = "https://console.vast.ai"
 #server_url_default = "host.docker.internal"
-# server_url_default = "http://localhost:5002"
+#server_url_default = "http://localhost:5002"
 #server_url_default  = "https://vast.ai/api/v0"
 api_key_file_base = "~/.vast_api_key"
 api_key_file = os.path.expanduser(api_key_file_base)
@@ -501,6 +501,7 @@ offers_fields = {
     "duration",
     "external",
     "flops_per_dphtotal",
+    "gpu_arch",
     "gpu_display_active",
     # "gpu_ram_free_min",
     "gpu_mem_bw",
@@ -742,6 +743,26 @@ def parse_vast_url(url_str):
 
 
 @parser.command(
+    argument("instance_id", help="id of instance to attach to", type=int),
+    argument("ssh_key", help="ssh key to attach to instance", type=str),
+    usage="vastai attach instance_id ssh_key",
+    help="Attach an ssh key to an instance. This will allow you to connect to the instance with the ssh key.",
+    epilog=deindent("""
+        Attach an ssh key to an instance. This will allow you to connect to the instance with the ssh key.
+        Examples:
+         vast attach 12371 ssh-rsa AAAAB3NzaC1yc2EAAA...
+
+        The first example attaches the ssh key to instance 12371
+    """),
+)
+def attach__ssh(args):
+    url = apiurl(args, "/instances/{id}/ssh/".format(id=args.instance_id))
+    req_json = {"ssh_key": args.ssh_key}
+    r = http_post(args, url, headers=headers, json=req_json)
+    r.raise_for_status()
+    print(r.json())
+
+@parser.command(
     argument("dst", help="instance_id:/path to target of copy operation.", type=str),
     usage="vastai cancel copy DST",
     help=" Cancel a remote copy in progress, specified by DST id",
@@ -950,6 +971,11 @@ def copy(args: argparse.Namespace):
     argument("--instance", help="id of the instance", type=str),
     argument("--connection", help="id of cloud connection on your account (get from calling 'vastai show connections')", type=str),
     argument("--transfer", help="type of transfer, possible options include Instance To Cloud and Cloud To Instance", type=str, default="Instance to Cloud"),
+    argument("--dry-run", help="show what would have been transferred", action="store_true"),
+    argument("--size-only", help="skip based on size only, not mod-time or checksum", action="store_true"),
+    argument("--ignore-existing", help="skip all files that exist on destination", action="store_true"),
+    argument("--update", help="skip files that are newer on the destination", action="store_true"),
+    argument("--delete-excluded", help="delete files on dest excluded from transfer", action="store_true"),
     usage="vastai cloud copy --src SRC --dst DST --instance INSTANCE_ID -connection CONNECTION_ID --transfer TRANSFER_TYPE",
     help=" Copy files/folders to and from cloud providers",
     epilog=deindent("""
@@ -985,6 +1011,21 @@ def cloud__copy(args: argparse.Namespace):
         print("invalid arguments")
         return
 
+    # Initialize an empty list for flags
+    flags = []
+
+    # Append flags to the list based on the argparse.Namespace
+    if args.dry_run:
+        flags.append("--dry-run")
+    if args.size_only:
+        flags.append("--size-only")
+    if args.ignore_existing:
+        flags.append("--ignore-existing")
+    if args.update:
+        flags.append("--update")
+    if args.delete_excluded:
+        flags.append("--delete-excluded")
+
     print(f"copying {args.src} {args.dst} {args.instance} {args.connection} {args.transfer}")
 
     req_json = {
@@ -992,7 +1033,8 @@ def cloud__copy(args: argparse.Namespace):
         "dst": args.dst,
         "instance_id": args.instance,
         "selected": args.connection,
-        "transfer": args.transfer
+        "transfer": args.transfer,
+        "flags": flags
     }
 
     if (args.explain):
@@ -1023,10 +1065,26 @@ def cloud__copy(args: argparse.Namespace):
 def create__api_key(args):
 
     url = apiurl(args, "/auth/apikeys/")
-    permissions = load_permissions_from_file(args.permissions)
+    permissions = load_permissions_from_file(args.permission_file)
     r = http_post(args, url, headers=headers, json={"name": args.name, "permissions": permissions, "key_params": args.key_params})
     r.raise_for_status()
     print("api-key created {}".format(r.json()))
+
+@parser.command(
+    argument("ssh_key", help="ssh key to add to your account", type=str),
+    usage="vastai create ssh-key ssh_key",
+    help="Create a new ssh-key",
+    epilog=deindent("""
+        Use this command to create a new ssh key for your account. 
+        All ssh keys are stored in your account and can be used to connect to instances they've been added to
+        All ssh keys should be added in rsa format
+    """)
+)
+def create__ssh_key(args):
+    url = apiurl(args, "/ssh/")
+    r = http_post(args, url, headers=headers, json={"ssh_key": args.ssh_key})
+    r.raise_for_status()
+    print("ssh-key created {}".format(r.json()))
 
 @parser.command(
     
@@ -1129,6 +1187,8 @@ def get_runtype(args):
 
     if args.ssh:
         runtype = 'ssh_direc ssh_proxy' if args.direct else 'ssh_proxy'
+
+    return runtype
 
 
 @parser.command(
@@ -1243,32 +1303,47 @@ def create__instance(args: argparse.Namespace):
     help="Create a subaccount",
     epilog=deindent("""
        Creates a new account that is considered a child of your current account as defined via the API key. 
+
+       vastai create subaccount --email bob@gmail.com --username bob --password password --type host
+
+       vastai create subaccount --email vast@gmail.com --username vast --password password --type host
     """),
 )
 def create__subaccount(args):
     """Creates a new account that is considered a child of your current account as defined via the API key.
     """
+    # Default value for host_only, can adjust based on expected default behavior
+    host_only = False
+    
+    # Only process the --account_type argument if it's provided
+    if args.type:
+        host_only = args.type.lower() == "host"
 
-    url = apiurl(args, "/users/")
     json_blob = {
         "email": args.email,
         "username": args.username,
         "password": args.password,
-        "host_only": True if args.type.lower() == "host" else False,
+        "host_only": host_only,
         "parent_id": "me"
     }
-    if (args.explain):
-        print("request json: ")
+
+    # Use --explain to print the request JSON and return early
+    if getattr(args, 'explain', False):
+        print("Request JSON would be: ")
         print(json_blob)
-    r = http_post(args, url, headers=headers,json=json_blob)
+        return  # Prevents execution of the actual API call
+
+    # API call execution continues here if --explain is not used
+    url = apiurl(args, "/users/")
+    r = http_post(args, url, headers=headers, json=json_blob)
     r.raise_for_status()
 
-    if (r.status_code == 200):
-        rj = r.json();
+    if r.status_code == 200:
+        rj = r.json()
         print(rj)
     else:
-        print(r.text);
-        print("failed with error {r.status_code}".format(**locals()));
+        print(r.text)
+        print(f"Failed with error {r.status_code}")
 
 @parser.command(
     argument("--team_name", help="name of the team", type=str),
@@ -1394,6 +1469,16 @@ def delete__api_key(args):
     r.raise_for_status()
     print(r.json())
 
+@parser.command(
+    argument("ID", help="id ssh key to delete", type=int),
+    usage="vastai delete ssh-key ID",
+    help="Remove an ssh-key",
+)
+def delete__ssh_key(args):
+    url = apiurl(args, "/ssh/{id}/".format(id=args.ID))
+    r = http_del(args, url, headers=headers)
+    r.raise_for_status()
+    print(r.json())
 
 @parser.command(
     argument("ID", help="id of group to delete", type=int),
@@ -1507,6 +1592,20 @@ def destroy__team(args):
     r.raise_for_status()
     print(r.json())
 
+@parser.command(
+    argument("instance_id", help="id of the instance", type=int),
+    argument("ssh_key_id", help="id of the key to attach to the instance", type=str),
+    usage="vastai detach instance_id ssh_key_id",
+    help="Detach an ssh key from an instance",
+    epilog=deindent("""
+        Example: vastai detach 99999 12345
+    """)
+)
+def detach__ssh(args):
+    url = apiurl(args, "/instances/{id}/ssh/{ssh_key_id}/".format(id=args.instance_id, ssh_key_id=args.ssh_key_id))
+    r = http_del(args, url, headers=headers)
+    r.raise_for_status()
+    print(r.json())
 
 @parser.command(
     argument("ID", help="id of instance to execute on", type=int),
@@ -2187,6 +2286,7 @@ def search__invoices(args):
             external:               bool      show external offers in addition to datacenter offers
             flops_usd:              float     TFLOPs/$
             geolocation:            string    Two letter country code. Works with operators =, !=, in, notin (e.g. geolocation not in [XV,XZ])
+            gpu_arch                string    host machine gpu architecture (e.g. nvidia, amd)
             gpu_mem_bw:             float     GPU memory bandwidth in GB/s
             gpu_name:               string    GPU model name (no quotes, replace spaces with underscores, ie: RTX_3090 rather than 'RTX 3090')
             gpu_ram:                float     per GPU RAM in GB
@@ -2238,6 +2338,7 @@ def search__offers(args):
             name = name.strip()
             if not name: continue
             direction = "asc"
+            field = name
             if name.strip("-") != name:
                 direction = "desc"
                 field = name.strip("-")
@@ -2574,6 +2675,19 @@ def show__api_key(args):
 )
 def show__api_keys(args):
     url = apiurl(args, "/auth/apikeys/")
+    r = http_get(args, url, headers=headers)
+    r.raise_for_status()
+    if args.raw:
+        print(json.dumps(r.json(), indent=1))
+    else:
+        print(r.json())
+
+@parser.command(
+    usage="vastai show ssh-keys",
+    help="List your ssh keys associated with your account",
+)
+def show__ssh_keys(args):
+    url = apiurl(args, "/ssh/")
     r = http_get(args, url, headers=headers)
     r.raise_for_status()
     if args.raw:
@@ -3132,8 +3246,22 @@ def update__team_role(args):
     permissions = load_permissions_from_file(args.permissions)
     r = http_put(args, url,  headers=headers, json={"name": args.name, "permissions": permissions})
     r.raise_for_status()
-    print(r.json())
+    if args.raw:
+        print(json.dumps(r.json(), indent=1))
+    else:
+        print(json.dumps(r.json(), indent=1))
 
+@parser.command(
+    argument("id", help="id of the ssh key to update", type=int),
+    argument("ssh_key", help="value of the ssh_key", type=str),
+    usage="vastai update ssh-key id ssh_key",
+    help="Update an existing ssh key",
+)
+def update__ssh_key(args):
+    url = apiurl(args, "/ssh/{id}/".format(id=args.ID))
+    r = http_put(args, url,  headers=headers, json={"ssh_key": args.ssh_key})
+    r.raise_for_status()
+    print(r.json())
 
 def convert_dates_to_timestamps(args):
     selector_flag = ""
@@ -3552,16 +3680,13 @@ def parse_env(envs):
     result = {}
     if (envs is None):
         return result
-    #env  = envs.split(' ')
     env = smart_split(envs,' ')
-    # print(env)
     prev = None
     for e in env:
         if (prev is None):
           if (e in {"-e", "-p", "-h"}):
               prev = e
           else:
-              #print(result)
               return result
         else:
           if (prev == "-p"):
@@ -3572,8 +3697,10 @@ def parse_env(envs):
           elif (prev == "-e"):
             kv = e.split('=')
             if len(kv) >= 2: #set(e).issubset(set("1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_=")):
-                val = kv[1].strip("'\"")
-                result[kv[0]] = val
+                val = kv[1]
+                if len(kv) > 2:
+                    val = '='.join(kv[1:])
+                result[kv[0]] = val.strip("'\"")
             else:
                 return result
           else:
@@ -3686,6 +3813,7 @@ def cancel__maint(args):
         print(json_blob)
     r = http_put(args, url,  headers=headers,json=json_blob)
     r.raise_for_status()
+    print(r.text)
     print(f"Cancel maintenance window(s) scheduled for machine {args.id} success".format(r.json()))
 
 
@@ -3742,23 +3870,168 @@ def unlist__machine(args):
         print("failed with error {r.status_code}".format(**locals()));
 
 
+def _get_gpu_names() -> List[str]:
+    """Returns a set of GPU names available on Vast.ai."""
+    endpoint = "/api/v0/gpu_names/unique/"
+    url = f"{server_url_default}{endpoint}"
+    r = requests.get(url, headers={})
+    r.raise_for_status()  # Will raise an exception for HTTP errors
+    gpu_names = r.json()
+    formatted_gpu_names = []
+    for name in gpu_names['gpu_names']:
+        formatted_gpu_names.append(name.replace(" ", "_").replace("-", "_"))
+    return formatted_gpu_names
+
+# dictionary maps region to list of countries 
+# matches FE code's dropdown menu
+REGIONS = {
+    "North_America": "[US, CA]",
+    "South_America": "[BR, AR, CL]",
+    "Europe": "[SE, UA, GB, PL, PT, SI, DE, IT, CH, LT, GR, FI, IS, AT, FR, RO, MD, HU, NO, MK, BG, ES, HR, NL, CZ, EE]",
+    "Asia": "[CN, JP, KR, ID, IN, HK, MY, IL, TH, QA, TR, RU, VN, TW, OM, SG, AE, KZ]",
+    "Oceania": "[AU, NZ]",
+    "Africa": "[EG, ZA]",
+}
 
 @parser.command(
-    argument("ID", help="id of the role", type=int),
-    argument("--name", help="name of the template", type=str),
-    argument("--permissions", help="file path for json encoded permissions, look in the docs for more information", type=str),
-    usage="vastai update team-role ID --name NAME --permissions PERMISSIONS",
-    help="Update an existing team role",
+    argument("-g", "--gpu-name", type=str, required=True, choices=_get_gpu_names(), help="Name of the GPU model, replace spaces with underscores"),
+    argument("-n", "--num-gpus", type=str, required=True, choices=["1", "2", "4", "8", "12", "14"], help="Number of GPUs required"),
+    argument("-r", "--region", type=str, choices=["North_America", "South_America", "Europe", "Asia", "Oceania", "Africa"], help="Geographical location of the instance"),
+    argument("-i", "--image", required=True, help="Name of the image to use for instance"),
+    argument("-d", "--disk", type=float, default=16.0, help="Disk space required in GB"),
+    argument("--price", help="per machine bid price in $/hour", type=float),
+    argument("--login", help="docker login arguments for private repo authentication, surround with '' ", type=str),
+    argument("--label", help="label to set on the instance", type=str),
+    argument("--onstart", help="filename to use as onstart script", type=str),
+    argument("--onstart-cmd", help="contents of onstart script as single argument", type=str),
+    argument("--entrypoint", help="override entrypoint for args launch instance", type=str),
+    argument("--ssh",     help="Launch as an ssh instance type.", action="store_true"),
+    argument("--jupyter", help="Launch as a jupyter instance instead of an ssh instance.", action="store_true"),
+    argument("--direct",  help="Use (faster) direct connections for jupyter & ssh.", action="store_true"),
+    argument("--jupyter-dir", help="For runtype 'jupyter', directory in instance to use to launch jupyter. Defaults to image's working directory.", type=str),
+    argument("--jupyter-lab", help="For runtype 'jupyter', Launch instance with jupyter lab.", action="store_true"),
+    argument("--lang-utf8", help="Workaround for images with locale problems: install and generate locales before instance launch, and set locale to C.UTF-8.", action="store_true"),
+    argument("--python-utf8", help="Workaround for images with locale problems: set python's locale to C.UTF-8.", action="store_true"),
+    argument("--extra", help=argparse.SUPPRESS),
+    argument("--env",   help="env variables and port mapping options, surround with '' ", type=str),
+    argument("--args",  nargs=argparse.REMAINDER, help="list of arguments passed to container ENTRYPOINT. Onstart is recommended for this purpose. (must be last argument)"),
+    argument("--force", help="Skip sanity checks when creating from an existing instance", action="store_true"),
+    argument("--cancel-unavail", help="Return error if scheduling fails (rather than creating a stopped instance)", action="store_true"),
+    argument("--template_hash", help="Create instance from template info", type=str),
+    usage="vastai launch instance [--help] [--api-key API_KEY] <gpu_name> <num_gpus> <image> [geolocation] [disk_space]",
+    help="Launch the top instance from the search offers based on the given parameters",
+    epilog=deindent("""
+        Launches an instance based on the given parameters. The instance will be created with the top offer from the search results.
+        Besides the gpu_name and num_gpus, you must pass in an '--image' argument as a minimum.
+
+        If you use args/entrypoint launch mode, we create a container from your image as is, without attempting to inject ssh and or jupyter.
+        If you use the args launch mode, you can override the entrypoint with --entrypoint, and pass arguments to the entrypoint with --args.
+        If you use --args, that must be the last argument, as any following tokens are consumed into the args string.
+        For ssh/jupyter launch types, use --onstart-cmd to pass in startup script, instead of --entrypoint and --args.
+                    
+        Examples:
+
+            # launch a single RTX 3090 instance with the pytorch image and 16 GB of disk space located anywhere
+            python vast.py launch instance -g RTX_3090 -n 1 -i pytorch/pytorch
+                    
+            # launch a 4x RTX 3090 instance with the pytorch image and 32 GB of disk space located in North America
+            python vast.py launch instance -g RTX_3090 -n 4 -i pytorch/pytorch -d 32.0 -r North_America
+            
+        Available fields:
+
+            Name                    Type      Description
+
+            num_gpus:               int       # of GPUs
+            gpu_name:               string    GPU model name
+            region:                 string    Region of the instance
+            image:                  string    Docker image name
+            disk_space:             float     Disk space in GB
+            price:                  float     Bid price per machine in $/hour, optional for cost optimization.
+            ssh, jupyter, direct:   bool      Flags to specify the instance type and connection method.
+            env:                    str       Environment variables and port mappings, encapsulated in single quotes.
+            args:                   list      Arguments passed to the container's ENTRYPOINT, used only if '--args' is specified.
+    """),
 )
-def update__team_role(args):
-    url = apiurl(args, "/team/roles/{id}/".format(id=args.ID))
-    permissions = load_permissions_from_file(args.permissions)
-    r = http_put(args, url,  headers=headers, json={"name": args.name, "permissions": permissions})
-    r.raise_for_status()
-    if args.raw:
-        print(json.dumps(r.json(), indent=1))
-    else:
-        print(r.json())
+def launch__instance(args):
+    """Allows for a more streamlined and simplified way to create an instance.
+
+    :param argparse.Namespace args: Namespace with many fields relevant to the endpoint.
+    """
+    args_query = f"num_gpus={args.num_gpus} gpu_name={args.gpu_name}"
+    if args.region:
+        args_query = f"geolocation in {REGIONS[args.region]}"
+    if args.disk:
+        args_query += f" disk_space>={args.disk}"
+
+    base_query = {"verified": {"eq": True}, "external": {"eq": False}, "rentable": {"eq": True}, "rented": {"eq": False}}
+    query = parse_query(args_query, base_query, offers_fields, offers_alias, offers_mult)
+
+    # let's stick with default for these search params
+    # this can be expanded upon in the future
+    query["order"] = [['score', 'desc']]
+    query["type"] = "on-demand"
+    query["limit"] = 3
+    query["allocated_storage"] = 5.0
+
+    if args.onstart:
+        with open(args.onstart, "r") as reader:
+            args.onstart_cmd = reader.read()
+    if args.onstart_cmd is None:
+        args.onstart_cmd = args.entrypoint
+    runtype = get_runtype(args)
+    if runtype == 1:
+        return 1
+
+    json_blob = {
+        "client_id": "me", 
+        "gpu_name": args.gpu_name, 
+        "num_gpus": args.num_gpus, 
+        "region": args.region, 
+        "image": args.image, 
+        "disk": args.disk,  
+        "q" : query,
+        "env" : parse_env(args.env),
+        "price": args.price,
+        "disk": args.disk,
+        "label": args.label,
+        "extra": args.extra,
+        "onstart": args.onstart_cmd,
+        "runtype": runtype, #full str
+        "image_login": args.login,
+        "python_utf8": args.python_utf8,
+        "lang_utf8": args.lang_utf8,
+        "use_jupyter_lab": args.jupyter_lab,
+        "jupyter_dir": args.jupyter_dir,
+        "force": args.force,
+        "cancel_unavail": args.cancel_unavail,
+        "template_hash_id" : args.template_hash
+    }
+    if (args.args != None):
+        json_blob["args"] = args.args
+
+    url = apiurl(args, "/launch_instance/".format())
+
+    if (args.explain):
+        print("request json: ")
+        print(json_blob)
+    r = http_put(args, url, headers=headers, json=json_blob)
+    try:
+        r.raise_for_status()  # This will raise an exception for HTTP error codes
+        response_data = r.json()
+        if args.raw:
+            print(json.dumps(r.json(), indent=1))
+        else:
+            print("Started. {}".format(r.json()))
+        if response_data.get('success'):
+            print(f"Instance launched successfully: {response_data.get('new_contract')}")
+        else:
+            print(f"Failed to launch instance: {response_data.get('error')}, {response_data.get('message')}")
+    except requests.exceptions.HTTPError as err:
+        print(f"HTTP error occurred: {err}")
+    except Exception as err:
+        print(f"An error occurred: {err}")
+
+
 
 login_deprecated_message = """
 login via the command line is no longer supported.

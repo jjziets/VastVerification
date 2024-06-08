@@ -4,27 +4,22 @@
 PORT=5000
 echo "RUNNING" > progress.log
 
-# Start a detached netcat process listening on the specified port and responding with the content of progress.log
-# Restart netcat if it ever exits
-while true; do
-    nc -lp $PORT -c 'cat progress.log'
-done &
-
-# Store the PID of the background job
+# Start the Python server in the background
+python3 remote.py &
+bg_pid=$!
 bg_pid=$!
 
 # Set a trap to kill the background job when this script exits
-#trap "kill $bg_pid" EXIT
+trap "kill $bg_pid" EXIT
 
 # First Test
 python3 systemreqtest.py
 exit_status=$?
 
-if [ $exit_status -eq 0 ]
-then
+if [ $exit_status -eq 0 ]; then
     echo "TESTED : System requirements test passed." > progress.log
 else
-    echo "ERROR 1: system requirements test failed."  > progress.log
+    echo "ERROR 1: System requirements test failed." > progress.log
     exit 1
 fi
 
@@ -32,10 +27,11 @@ fi
 python3 testAllGpusResNet50.py
 exit_status=$?
 
-if [ $exit_status -eq 0 ]
-then
+if [ $exit_status -eq 0 ]; then
     echo "DONE" > progress.log
 else
-    echo "ERROR 2: Test All GPU ResNet50 failed."  > progress.log
+    echo "ERROR 2: Test All GPU ResNet50 failed." > progress.log
     exit 2
 fi
+
+wait 3600

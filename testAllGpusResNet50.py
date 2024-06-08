@@ -14,13 +14,13 @@ NUM_STEP = 20
 def main():
     NUM_GPUS = torch.cuda.device_count()
 
-    # Get total GPU memory
-    total_gpu_memory = torch.cuda.get_device_properties(0).total_memory * NUM_GPUS
+    # Get single GPU memory
+    single_gpu_memory = torch.cuda.get_device_properties(0).total_memory
 
     benchmark = {}
     model_failed = False  # Variable to track if the model execution failed
     # Start from the maximum possible batch size (2**16 = 65536)
-    for exp in range(16, 3, -1):  # from 65536 to 16
+    for exp in range(16, 1, -1):  # from 65536 to 16
         batch_size = 2 ** exp
 
         if not model_failed:  # Only run the estimation if the model did not fail on the previous batch size
@@ -33,21 +33,22 @@ def main():
                 memory_for_batch_1 = torch.cuda.memory_allocated()
                 del small_model, small_input
                 torch.cuda.empty_cache()  # Clear GPU memory cache
-                #time.sleep(5)  # suspend execution for 5 seconds
+                time.sleep(5)  # Suspend execution for 5 seconds
                 # Extrapolate to the batch size we're testing
-                estimated_memory_required = memory_for_batch_1 * batch_size  * 0.5 # Added a safety factor
-                if estimated_memory_required > total_gpu_memory:
-                    print('Skipping batch size %i due to memory constraints.' % batch_size)
+                estimated_memory_required = memory_for_batch_1 * batch_size
+                print(f'Batch size {batch_size}: Estimated memory required = {estimated_memory_required}, Single GPU memory = {single_gpu_memory}')
+                if estimated_memory_required > single_gpu_memory:
+                    print(f'Skipping batch size {batch_size} due to memory constraints.')
                     continue
-            except:
-                print('Failed to estimate memory requirements for batch size %i.' % batch_size)
+            except Exception as e:
+                print(f'Failed to estimate memory requirements for batch size {batch_size}: {e}')
                 continue
 
         try:
             torch.cuda.empty_cache()  # Clear GPU memory cache
-            time.sleep(5)
+            time.sleep(10)  # Increase sleep time to ensure memory is properly freed
             benchmark[batch_size] = []
-            print('Benchmarking ResNet50 on batch size %i with %i GPUs' % (batch_size, NUM_GPUS))
+            print(f'Benchmarking ResNet50 on batch size {batch_size} with {NUM_GPUS} GPUs')
             model = resnet18()
             if NUM_GPUS > 1:
                 model = nn.DataParallel(model)
@@ -57,7 +58,7 @@ def main():
             img = Variable(torch.randn(batch_size, 3, 224, 224)).cuda()
             durations = []
             for step in range(NUM_STEP + WARM_UP):
-                # test
+                # Test
                 torch.cuda.synchronize()
                 start = time.time()
                 model(img)
@@ -70,11 +71,12 @@ def main():
             del model
             torch.cuda.empty_cache()  # Clear GPU memory cache
             model_failed = False  # Model run successful, reset the model_failed flag
+            print(f'Successfully executed with batch size {batch_size}')
             sys.exit(0)  # Successful run, exit with code 0
 
         except RuntimeError as e:
             if 'out of memory' in str(e):
-                print('Failed to execute the model with batch size %i due to memory constraints' % batch_size)
+                print(f'Failed to execute the model with batch size {batch_size} due to memory constraints: {e}')
                 torch.cuda.empty_cache()  # Clear GPU memory cache
                 model_failed = True  # Model run failed, set the model_failed flag
                 continue

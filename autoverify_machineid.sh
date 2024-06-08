@@ -237,14 +237,19 @@ function get_actual_status {
 
 
 # Fetch data from the system
-tempOffers=($(./vast search offers  --limit 65535  "machine_id=$1 verified=false cuda_vers>=12.0  reliability>0.90 direct_port_count>3 pcie_bw>3 inet_down>10 inet_up>10 gpu_ram>7"  -o 'dlperf-'  | sed 's/|/ /'  | awk '{print $1,$11,$19,$20}'))
-# Delete the first index as it contains the title
-echo $tempOffers
+tempOffers=($(./vast search offers  --limit 65535  "machine_id=$1 verified=any cuda_vers>=12.0 direct_port_count>3 pcie_bw>3 inet_down>10 inet_up>10 gpu_ram>7"  -o 'dlperf-'  | sed 's/|/ /'  | awk '{print $1,$11,$19,$20}'))
 
-unset tempOffers[0]
+
+
+# Delete the first index as it contains the title
+echo "offers: $tempOffers"
+
+#unset tempOffers[0]
 #unset tempOffers[1]
 #unset tempOffers[2]
 #unset tempOffers[3]
+
+
 
 # Declare associative arrays
 declare -A maxDLPs
@@ -256,7 +261,7 @@ echo '' > maxIDsWithMaxDLPs.txt
 
 
 # Parse the tempOffers array
-for ((i=0; i<${#tempOffers[@]}; i+=4)); do
+for ((i=4; i<${#tempOffers[@]}; i+=4)); do
     id=${tempOffers[i]}
     dlp=${tempOffers[i+1]}
     mach_id=${tempOffers[i+2]}
@@ -275,9 +280,9 @@ for ((i=0; i<${#tempOffers[@]}; i+=4)); do
 #    echo "Current mach_id: $mach_id"
 
     # Skip if status is "verified"
-    if [[ "$status" == "verified" ]]; then
-        continue
-    fi
+#    if [[ "$status" == "verified" ]]; then
+#        continue
+#    fi
 
     # If the current DLP is higher than the stored one or if mach_id doesn't exist in maxDLPs array
     if [[ -z ${maxDLPs[$mach_id]} || $(bc <<< "$dlp > ${maxDLPs[$mach_id]}") -eq 1 ]]; then
@@ -323,8 +328,14 @@ while (( ${#active_instance_id[@]} < 20 && ${#Offers[@]} > 0 )) || (( ${#active_
 	while (( ${#active_instance_id[@]} < 20 && ${#Offers[@]} > 0 )); do
        		next_offer="${Offers[0]}"  # Get the first offer
         	Offers=("${Offers[@]:1}")  # Remove the first offer from the Offers array
-            output=$(./vast create instance "$next_offer"  --image  jjziets/vasttest:latest  --jupyter --direct --env '-e TZ=PDT -e XNAME=XX4 -p 5000:5000' --disk 20 --onstart-cmd './remote.sh')
-	    	echo "$output"
+		if [ -z "$next_offer" ]; then
+		    echo "No next offer available, exiting."
+		    exit 1
+		else 
+		    echo "Next Offer: $next_offer"
+		fi
+                output=$(./vast create instance "$next_offer"  --image  jjziets/vasttest:latest  --jupyter --direct --env '-e TZ=PDT -e XNAME=XX4 -p 5000:5000' --disk 20 --onstart-cmd 'python3 remote.py')
+	    	echo "Output of create instance: $output"
 
 	    # Check if the output starts with "Started. "
 	    if [[ $output == Started.* ]]; then

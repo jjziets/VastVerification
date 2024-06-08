@@ -73,36 +73,37 @@ if flock -n "$lock_file" -c "true"; then
     SECONDS=0  # reset the SECONDS counter
 
     while true; do
-# Check if script has been running for longer than 5 minutes
-    if [ $SECONDS -gt 300 ]; then
-        echo "$machine_id:$instances_id Time out while stress testing " >> Error_testresults.log
-        ./vast destroy instance  $instances_id
-        exit 1
-    fi
+        # Check if script has been running for longer than 5 minutes
+        if [ $SECONDS -gt 300 ]; then
+            echo "$machine_id:$instances_id Time out while stress testing " >> Error_testresults.log
+            ./vast destroy instance  $instances_id
+            exit 1
+        fi
 
-    # Send an 'EOT' message and receive response
-    message=$(echo "EOT" | nc -w 5 $IP $PORT)
-#    echo "instances_id:$instances_id machine_id:$machine_id  $message" 
-    # If the message is 'DONE' or starts with 'ERROR', exit the loop
-    if [[ "$message" == "DONE" ]]; then
-        echo "$machine_id" >> Pass_testresults.log
-        ./vast destroy instance  $instances_id
-	break
-    elif [[ "$message" == ERROR* ]]; then
-       echo "$machine_id:$instances_id $message" >> Error_testresults.log
-        ./vast destroy instance  $instances_id
-        break
-    fi
-    sleep 1
+        # Send an 'EOT' message and receive response
+        message=$(echo "EOT" | nc -w 5 $IP $PORT)
+
+        # If the message is 'DONE' or starts with 'ERROR', exit the loop
+        if [[ "$message" == "DONE" ]]; then
+            echo "$machine_id" >> Pass_testresults.log
+            ./vast destroy instance  $instances_id
+            break
+        elif [[ "$message" == ERROR* ]]; then
+            echo "$machine_id:$instances_id $message" >> Error_testresults.log
+            ./vast destroy instance  $instances_id
+            break
+        fi
+
+        sleep 1
     done
 
     # Check if the instance is still running
-	instance_check_time=0
-	while [ "$(is_instance "$instances_id")" = "true" ] && [ $instance_check_time -lt 300 ]; do
-    	sleep 60
-    	((instance_check_time+=60))
-    	./vast destroy instance "$instances_id"
-	done
+    instance_check_time=0
+    while [ "$(is_instance "$instances_id")" = "true" ] && [ $instance_check_time -lt 300 ]; do
+        sleep 60
+        ((instance_check_time+=60))
+        ./vast destroy instance "$instances_id"
+    done
 
     # Remove the lock file
     rm "$lock_file"

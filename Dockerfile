@@ -1,35 +1,29 @@
-# Start with the specified PyTorch image
-FROM pytorch/pytorch:1.9.0-cuda11.1-cudnn8-runtime
+# Start with the specified CUDA image with cuDNN support
+FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
 
-# Update the system and install necessary packages
-RUN apt-get -y update && apt-get -y upgrade && \
-    apt-get install -y python3 python3-pip git netcat
-
-# Update Python and PyTorch to their latest versions
-RUN apt-get upgrade -y python3 && \
-    pip3 install --upgrade torch psutil
-
-# Clone the specified repository
-#RUN git clone https://github.com/jjziets/pytorch-benchmark-volta.git
+# Install Python and necessary packages, install PyTorch and other dependencies, and clean up
+RUN apt-get -y update && apt-get -y install --no-install-recommends \
+    python3 python3-pip git netcat && \
+    apt-get clean && \
+    apt-get autoremove -y && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
+    pip3 install --upgrade psutil && \
+    pip3 install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu124 && \
+    rm -rf /root/.cache/pip /tmp/* /var/tmp/*
 
 # Set the working directory in the container
 WORKDIR /pytorch-benchmark-volta
 
-# Copy the requirements file into the container
+# Copy the requirements file and scripts into the container
 COPY requirements.txt .
-COPY remote.sh .
+COPY remote.py .
 COPY testAllGpusResNet50.py .
 COPY systemreqtest.py .
 
+
 # Install Python dependencies
-RUN pip3 install --no-cache-dir -r requirements.txt
-
-
-
-# Make the script executable
-RUN chmod +x remote.sh
+RUN pip3 install --no-cache-dir -r requirements.txt && \
+    rm -rf /root/.cache/pip /tmp/* /var/tmp/*
 
 # Define the command to run when the container is started
-CMD ["./remote.sh"]
-
-
+CMD ["python3 remote.py"]

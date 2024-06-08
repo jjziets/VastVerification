@@ -230,9 +230,9 @@ function get_actual_status {
 
 
 # Fetch data from the system
-tempOffers=($(./vast search offers  --limit 65535  "verified=false cuda_vers>=12.0  reliability>0.90 direct_port_count>3 pcie_bw>3 inet_down>10 inet_up>10 gpu_ram>7"  -o 'dlperf-'  | sed 's/|/ /'  | awk '{print $1,$11,$19,$20}'))
+tempOffers=($(./vast search offers  --limit 65535  "cuda_vers>=12.0 verified=any reliability>0.90 direct_port_count>3 pcie_bw>3 inet_down>10 inet_up>10 gpu_ram>7"  -o 'dlperf-'  | sed 's/|/ /'  | awk '{print $1,$11,$19,$20}'))
 # Delete the first index as it contains the title
-unset tempOffers[0]
+#unset tempOffers[0]
 #unset tempOffers[1]
 #unset tempOffers[2]
 #unset tempOffers[3]
@@ -247,7 +247,7 @@ echo '' > maxIDsWithMaxDLPs.txt
 
 
 # Parse the tempOffers array
-for ((i=0; i<${#tempOffers[@]}; i+=4)); do
+for ((i=4; i<${#tempOffers[@]}; i+=4)); do
     id=${tempOffers[i]}
     dlp=${tempOffers[i+1]}
     mach_id=${tempOffers[i+2]}
@@ -314,7 +314,7 @@ while (( ${#active_instance_id[@]} < 20 && ${#Offers[@]} > 0 )) || (( ${#active_
 	while (( ${#active_instance_id[@]} < 20 && ${#Offers[@]} > 0 )); do
        		next_offer="${Offers[0]}"  # Get the first offer
         	Offers=("${Offers[@]:1}")  # Remove the first offer from the Offers array
-            output=$(./vast create instance "$next_offer"  --image  jjziets/vasttest:latest  --jupyter --direct --env '-e TZ=PDT -e XNAME=XX4 -p 5000:5000' --disk 20 --onstart-cmd './remote.sh')
+            output=$(./vast create instance "$next_offer"  --image  jjziets/vasttest:latest  --jupyter --direct --env '-e TZ=PDT -e XNAME=XX4 -p 5000:5000' --disk 20 --onstart-cmd 'python3 remote.py')
 	    	echo "$output"
 
 	    # Check if the output starts with "Started. "
@@ -404,7 +404,7 @@ while (( ${#active_instance_id[@]} < 20 && ${#Offers[@]} > 0 )) || (( ${#active_
 			echo "Mark this Instance $instance_id for removal"
 	                continue  # We've modified the array in the loop, so we break and start the loop anew
 		#check if it has been waiting for more than 15min or if the instance has been running for 2m without any net response
-	        elif (( $current_time - ${CreateTime[$instance_id]:-0} > 3800 )) || (( $running_time > 180 )); then
+	        elif (( $current_time - ${CreateTime[$instance_id]:-0} > 1800 )) || (( $running_time > 300 )); then
 		    echo "$machine_id:$instance_id Time exceeded get_status_msg $instance_id" >> Error_testresults.log
 	            ./vast destroy instance "$instance_id" #destroy the instance
 	            to_remove+=("$instance_id")
@@ -415,7 +415,7 @@ while (( ${#active_instance_id[@]} < 20 && ${#Offers[@]} > 0 )) || (( ${#active_
 	        elif [ "$actual_status" == "loading" ]; then
 		#echo "Debug: CreateTime[$instance_id] = ${CreateTime[$instance_id]}"
 	         #check if it has been waiting for more than 15min
-		if (( $current_time - ${CreateTime[$instance_id]:-0} > 3800 )); then 
+		if (( $current_time - ${CreateTime[$instance_id]:-0} > 1800 )); then 
 	            echo "$machine_id:$instance_id Time exceeded get_status_msg = loading" >> Error_testresults.log
 	            ./vast destroy instance "$instance_id" #destroy the instance
 		    to_remove+=("$instance_id")
@@ -459,7 +459,7 @@ while (( ${#active_instance_id[@]} < 20 && ${#Offers[@]} > 0 )) || (( ${#active_
 	            #active_instance_id[$i]='0'  # Mark this Instance for removal
                     echo "Mark this Instance $instance_id for removal"
 	            continue  # We've modified the array in the loop, so we break and start the loop anew
-       		 elif (( $current_time - ${CreateTime[$instance_id]} > 3800 )); then #check if it has been waiting for more than 10min
+       		 elif (( $current_time - ${CreateTime[$instance_id]} > 1800 )); then #check if it has been waiting for more than 10min
         	    echo "$machine_id:$instance_id Time exceeded get_status_msg $instance_id" >> Error_testresults.log
            	    ./vast destroy instance "$instance_id" #destroy the instance
 		    to_remove+=("$instance_id")
