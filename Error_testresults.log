@@ -1,1 +1,96 @@
-1717852226: Error logs for machine_id. Tested  1 instances
+1717869579: Error logs for machine_id. Tested  128 instances
+20763:11086621 No Direct Ports found get_status_msg = running
+24394:11086621  instance unknown not found
+22523:11086656 No Direct Ports found get_status_msg = running
+22588:11086609 ERROR 1: System requirements test failed.
+21510:11086611 No Direct Ports found get_status_msg = running
+24120:11086613 Time out while stress testing 
+19663:11086656  instance unknown not found
+24394:11086617 Time out while stress testing 
+23482:11086688 No Direct Ports found get_status_msg = running
+14954:11086615 Time out while stress testing 
+18910:11086688  instance unknown not found
+21386:11086707 No Direct Ports found get_status_msg = running
+23329:11086678 Unable to find image 'jjziets/vasttest_latest/jupyter:latest' locally
+Error response from daemon: Get "https://registry-1.docker.io/v2/": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)
+24435:11086707  instance unknown not found
+23833:11086737 No Direct Ports found get_status_msg = running
+22528:11086684 ERROR 1: System requirements test failed.
+24533:11086737  instance unknown not found
+22108:11086769 No Direct Ports found get_status_msg = running
+24442:11086769  instance unknown not found
+17068:11086799 No Direct Ports found get_status_msg = running
+24453:11086799  instance unknown not found
+22543:11086828 No Direct Ports found get_status_msg = running
+22265:11086704 ERROR 1: System requirements test failed.
+24337:11086686 Time out while stress testing 
+18143:11086757 Time out while stress testing 
+15339:11086758 Time out while stress testing 
+21674:11086765 Time out while stress testing 
+23724:11086828  instance unknown not found
+23701:11086862 No Direct Ports found get_status_msg = running
+14795:11086797 Unable to find image 'jjziets/vasttest_latest/jupyter:latest' locally
+Error response from daemon: pull access denied for jjziets/vasttest_latest/jupyter, repository does not exist or may require 'docker login': denied: requested access to the resource is denied
+23546:11086821 ERROR 1: System requirements test failed.
+23014:11086822 No Direct Ports found get_status_msg = running
+24481:11086862  instance unknown not found
+24496:11086891 No Direct Ports found get_status_msg = running
+23535:11086860  went offline )
+21119:11086819 Time out while stress testing 
+23535:11086888 11086888  Error response from daemon: unknown or invalid runtime name: nvidia
+23535:11086891  instance unknown not found
+22574:11086951 No Direct Ports found get_status_msg = running
+22496:11086855 ERROR 1: System requirements test failed.
+22496:11086858  Error response from daemon: failed to create task for container: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: error during container init: error running hook #1: error running hook: exit status 1, stdout: , stderr: Auto-detected mode as 'legacy'
+nvidia-container-cli: device error: 3: unknown device: unknown
+Error: failed to start containers: C.11086858
+10152:11086886 ERROR 1: System requirements test failed.
+17267:11086823 Time out while stress testing 
+19828:11086951  instance unknown not found
+23560:11086972 No Direct Ports found get_status_msg = running
+24158:11086857 ERROR 1: System requirements test failed.
+23367:11086887  Error response from daemon: failed to create task for container: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: error during container init: error running hook #1: error running hook: exit status 1, stdout: , stderr: Auto-detected mode as 'legacy'
+nvidia-container-cli: detection error: nvml error: unknown error: unknown
+Error: failed to start containers: C.11086887
+21031:11086950  Error response from daemon: failed to create task for container: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: error during container init: error running hook #1: error running hook: exit status 1, stdout: , stderr: Auto-detected mode as 'legacy'
+nvidia-container-cli: detection error: nvml error: unknown error: unknown
+Error: failed to start containers: C.11086950
+21031:11086972  instance unknown not found
+23992:11086994 No Direct Ports found get_status_msg = running
+22993:11086968 ERROR 1: System requirements test failed.
+22078:11086994  instance unknown not found
+22882:11087071 No Direct Ports found get_status_msg = running
+22882:11086756 Time exceeded get_status_msg = loading
+23222:11086989 Unable to find image 'jjziets/vasttest_latest/jupyter:latest' locally
+Error response from daemon: pull access denied for jjziets/vasttest_latest/jupyter, repository does not exist or may require 'docker login': denied: requested access to the resource is denied
+24501:11087071  instance unknown not found
+23061:11087093 No Direct Ports found get_status_msg = running
+23061:11086794 Time exceeded get_status_msg = loading
+16417:11087070 ERROR 1: System requirements test failed.
+16417:11087093  instance unknown not found
+21647:11087134 No Direct Ports found get_status_msg = running
+21647:11086825 Time exceeded get_status_msg = loading
+22606:11087134  instance unknown not found
+21408:11087133 No Direct Ports found get_status_msg = running
+23373:11087133  instance unknown not found
+23373:11086856 Time exceeded get_status_msg = loading
+21959:11087088 Time out while stress testing 
+17220:11087090 Time out while stress testing 
+20620:11087065 ERROR 2: Test All GPU ResNet50 failed.
+20620:11087129  Error response from daemon: failed to create task for container: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: error during container init: error setting cgroup config for procHooks process: cannot set memory limit: container could not join or create cgroup: unknown
+Error: failed to start containers: C.11087129
+23373:11087132 Time out while stress testing 
+22565:11086991 ERROR 1: System requirements test failed.
+21634:11087128 No Direct Ports found get_status_msg = running
+20629:11087124 No Direct Ports found get_status_msg = running
+23373:11087132 Time out while stress testing 
+20629:11087124  instance unknown not found
+23772:11086993 No Direct Ports found get_status_msg = running
+23373:11087132 Time out while stress testing 
+23772:11086993  instance unknown not found
+23373:11087132 Time out while stress testing 
+22145:11086992 No Direct Ports found get_status_msg = running
+23373:11087132 Time out while stress testing 
+22145:11086992  instance unknown not found
+23373:11087132 Time out while stress testing 
+23373:11087132 Time out while stress testing 

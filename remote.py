@@ -11,7 +11,7 @@ def handle_connection(client_socket):
     with open(LOG_FILE, 'r') as file:
         lines = file.readlines()
         if lines:
-            client_socket.sendall(lines[-1].encode('utf-8'))
+            client_socket.sendall(''.join(lines).encode('utf-8'))
     client_socket.close()
 
 # Function to start the server
@@ -32,30 +32,36 @@ def start_server():
 server_thread = threading.Thread(target=start_server)
 server_thread.start()
 
+# Function to log messages to progress.log
+def log_message(message):
+    with open(LOG_FILE, 'a') as log_file:
+        log_file.write(message + '\n')
+
 # Function to run tests and update the progress log
 def run_tests():
+    # Clear the log file at the start
     with open(LOG_FILE, 'w') as log_file:
-        log_file.write("RUNNING\n")
+        log_file.write("")  # Empty the log file
 
     # First Test
-    result = subprocess.run(['python3', 'systemreqtest.py'], capture_output=True)
+    result = subprocess.run(['python3', 'systemreqtest.py'], capture_output=True, text=True)
     if result.returncode == 0:
-        with open(LOG_FILE, 'w') as log_file:
-            log_file.write("TESTED : System requirements test passed.\n")
+        print("TESTED : System requirements test passed.")
+        # Do not log "TESTED" message since it's not required in final output
     else:
-        with open(LOG_FILE, 'w') as log_file:
-            log_file.write("ERROR 1: System requirements test failed.\n")
-        exit(1)
+        log_message("ERROR 1: System requirements test failed.")
+        log_message("Standard Output:\n" + result.stdout)
+        log_message("Standard Error:\n" + result.stderr)
+        return  # Exit without logging "DONE"
 
     # Second Test
-    result = subprocess.run(['python3', 'testAllGpusResNet50.py'], capture_output=True)
+    result = subprocess.run(['python3', 'testAllGpusResNet50.py'], capture_output=True, text=True)
     if result.returncode == 0:
-        with open(LOG_FILE, 'w') as log_file:
-            log_file.write("DONE\n")
+        log_message("DONE")
     else:
-        with open(LOG_FILE, 'w') as log_file:
-            log_file.write("ERROR 2: Test All GPU ResNet50 failed.\n")
-        exit(2)
+        log_message("ERROR 2: Test All GPU ResNet50 failed.")
+        log_message("Standard Output:\n" + result.stdout)
+        log_message("Standard Error:\n" + result.stderr)
 
 # Run the tests
 run_tests()
