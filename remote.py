@@ -49,9 +49,7 @@ def run_tests():
         print("TESTED : System requirements test passed.")
         # Do not log "TESTED" message since it's not required in final output
     else:
-        log_message("ERROR 1: System requirements test failed.")
-        log_message("Standard Output:\n" + result.stdout)
-        log_message("Standard Error:\n" + result.stderr)
+        log_message("ERROR 1: System requirements test failed. "  +  result.stdout +" " + result.stderr)
         return  # Exit without logging "DONE"
 
     # Second Test
@@ -59,9 +57,7 @@ def run_tests():
     if result.returncode == 0:
         log_message("DONE")
     else:
-        log_message("ERROR 2: Test All GPU ResNet50 failed.")
-        log_message("Standard Output:\n" + result.stdout)
-        log_message("Standard Error:\n" + result.stderr)
+        log_message("ERROR 2: Test All GPU ResNet50 failed. " +  result.stdout +" " + result.stderr)
 
 # Run the tests
 run_tests()

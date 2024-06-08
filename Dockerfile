@@ -1,5 +1,6 @@
 # Start with the specified CUDA image with cuDNN support
-FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
+FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+#FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
 
 # Install Python and necessary packages, install PyTorch and other dependencies, and clean up
 RUN apt-get -y update && apt-get -y install --no-install-recommends \
