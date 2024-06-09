@@ -488,7 +488,7 @@ while (( ${#active_instance_id[@]} < 20 && ${#Offers[@]} > 0 )) || (( ${#active_
  	           continue  # We've modified the array in the loop, so we break and start the loop anew
  	       fi
  	   elif [ "$actual_status" == "offline" ]; then
-	            echo "$machine_id:$instance_id  went offline )" >> Error_testresults.log
+	            echo "$machine_id:$instance_id  went offline" >> Error_testresults.log
 	            ./vast destroy instance "$instance_id" #destroy the instance
 		    to_remove+=("$instance_id")
 	            #active_instance_id[$i]='0'  # Mark this Instance for removal
@@ -504,7 +504,7 @@ while (( ${#active_instance_id[@]} < 20 && ${#Offers[@]} > 0 )) || (( ${#active_
             elif [ "$actual_status" == "unknown" ]; then
 		if [ "$(search_instance "$instance_id")" == "false" ]; then
 			echo "$machine_id:$instance_id Instance with ID: $instance_id not found."
-			echo "$machine_id:$instance_id  instance unknown not found" >> Error_testresults.log
+			#echo "$machine_id:$instance_id  instance unknown not found" >> Error_testresults.log
                        ./vast destroy instance "$instance_id" #destroy the instance
                 	to_remove+=("$instance_id")
 			#active_instance_id[$i]='0'  # Mark this Instance for removal
