@@ -1,16 +1,21 @@
 # Start with the specified CUDA image with cuDNN support
-FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
 #FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
+FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
 
-# Install Python and necessary packages, install PyTorch and other dependencies, and clean up
+# Install Python, necessary packages, stress-ng, build-essential for building gpu-burn, and clean up
 RUN apt-get -y update && apt-get -y install --no-install-recommends \
-    python3 python3-pip git netcat && \
+    python3 python3-pip git netcat stress-ng build-essential && \
     apt-get clean && \
     apt-get autoremove -y && \
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
-    pip3 install --upgrade psutil && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Upgrade psutil and install PyTorch and other dependencies
+RUN pip3 install --upgrade psutil && \
     pip3 install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu124 && \
     rm -rf /root/.cache/pip /tmp/* /var/tmp/*
+
+# Clone gpu-burn repository and build it
+RUN rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Set the working directory in the container
 WORKDIR /pytorch-benchmark-volta
@@ -20,7 +25,8 @@ COPY requirements.txt .
 COPY remote.py .
 COPY testAllGpusResNet50.py .
 COPY systemreqtest.py .
-
+COPY gpu_burn .
+COPY compare.ptx .
 
 # Install Python dependencies
 RUN pip3 install --no-cache-dir -r requirements.txt && \
@@ -28,3 +34,10 @@ RUN pip3 install --no-cache-dir -r requirements.txt && \
 
 # Define the command to run when the container is started
 CMD ["python3 remote.py"]
+
+# Provide commands to run stress-ng and gpu-burn if needed
+# For stress-ng (example: 4 CPU stress test for 60 seconds)
+# CMD ["stress-ng", "--cpu", "4", "--timeout", "60s"]
+
+# For gpu-burn (example: burn test for 60 seconds)
+# CMD ["./gpu-burn/gpu_burn", "60"]
