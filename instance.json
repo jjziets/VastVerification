@@ -1,0 +1,150 @@
+{
+ "actual_status": "running",
+ "bundle_id": 364160913,
+ "bw_nvlink": 56.24800109863281,
+ "client_run_time": 1.1,
+ "compute_cap": 860,
+ "cpu_arch": "amd64",
+ "cpu_cores": 32,
+ "cpu_cores_effective": 32.0,
+ "cpu_name": "AMD EPYC 7282 16-Core Processor",
+ "cpu_ram": 225335,
+ "cpu_util": 0.0,
+ "credit_balance": null,
+ "credit_discount": null,
+ "credit_discount_max": 0.3,
+ "cuda_max_good": 12.5,
+ "cur_state": "running",
+ "direct_port_count": 1000,
+ "direct_port_end": 40756,
+ "direct_port_start": 40031,
+ "disk_bw": 1816.0,
+ "disk_name": "Samsung SSD 970 EVO Plus 2TB",
+ "disk_space": 20.0,
+ "disk_usage": 0.0560000017285347,
+ "disk_util": 0.0560000017285347,
+ "dlperf": 76.715112,
+ "dlperf_per_dphtotal": 63.70903125,
+ "dph_base": 1.2,
+ "dph_total": 1.2041481481481482,
+ "driver_version": "555.52.04",
+ "duration": 172.1032361984253,
+ "end_date": 1725084054.0,
+ "external": false,
+ "extra_env": {
+  "-p 5000:5000": "1",
+  "TZ": "PDT",
+  "XNAME": "XX4"
+ },
+ "flops_per_dphtotal": 60.003779527559054,
+ "geolocation": "South Africa, ZA",
+ "gpu_display_active": false,
+ "gpu_frac": 1.0,
+ "gpu_lanes": 16,
+ "gpu_mem_bw": 643.0,
+ "gpu_name": "RTX A6000",
+ "gpu_ram": 49140,
+ "gpu_temp": 29.999987,
+ "gpu_totalram": 98280,
+ "gpu_util": 0.0,
+ "has_avx": 1,
+ "host_id": 5878,
+ "host_run_time": 2592000.0,
+ "hosting_type": null,
+ "id": 11133406,
+ "image_args": [],
+ "image_runtype": "jupyter_direc ssh_direc ssh_proxy",
+ "image_uuid": "jjziets/vasttest:latest",
+ "inet_down": 802.3,
+ "inet_down_billed": 7761.92,
+ "inet_down_cost": 0.0009765625,
+ "inet_up": 810.3,
+ "inet_up_billed": 110.0,
+ "inet_up_cost": 0.0009765625,
+ "instance": {
+  "discountTotalHour": 0,
+  "discountedTotalPerHour": 0,
+  "diskHour": 0.004148148148148148,
+  "gpuCostPerHour": 1.2,
+  "totalHour": 1.2041481481481482
+ },
+ "intended_status": "running",
+ "internet_down_cost_per_tb": 1.0,
+ "internet_up_cost_per_tb": 1.0,
+ "is_bid": false,
+ "jupyter_token": "e15791f0aa4f2c22204bdb23b97928fb6b33586773b300415029cd4b21dce4ff",
+ "label": null,
+ "local_ipaddrs": "192.168.1.101 172.18.0.1 172.17.0.1 \n",
+ "logo": "/static/logos/vastai_small2.png",
+ "machine_dir_ssh_port": 40999,
+ "machine_id": 24126,
+ "mem_limit": 221.5641088,
+ "mem_usage": 0.07374847999999999,
+ "min_bid": 0.2,
+ "mobo_name": "H12SSL",
+ "next_state": "running",
+ "num_gpus": 2,
+ "onstart": null,
+ "os_version": "22.04",
+ "pci_gen": 4.0,
+ "pcie_bw": 11.8,
+ "ports": {
+  "22/tcp": [
+   {
+    "HostIp": "0.0.0.0",
+    "HostPort": "40756"
+   },
+   {
+    "HostIp": "::",
+    "HostPort": "40756"
+   }
+  ],
+  "5000/tcp": [
+   {
+    "HostIp": "0.0.0.0",
+    "HostPort": "40031"
+   },
+   {
+    "HostIp": "::",
+    "HostPort": "40031"
+   }
+  ],
+  "8080/tcp": [
+   {
+    "HostIp": "0.0.0.0",
+    "HostPort": "40400"
+   },
+   {
+    "HostIp": "::",
+    "HostPort": "40400"
+   }
+  ]
+ },
+ "public_ipaddr": "41.193.204.66",
+ "reliability2": 0.9792842,
+ "rentable": true,
+ "score": 52.797967722,
+ "search": {
+  "discountTotalHour": 0,
+  "discountedTotalPerHour": 1.2041481481481482,
+  "diskHour": 0.004148148148148148,
+  "gpuCostPerHour": 1.2,
+  "totalHour": 1.2041481481481482
+ },
+ "ssh_host": "ssh4.vast.ai",
+ "ssh_idx": "4",
+ "ssh_port": 18284,
+ "start_date": 1718273187.2139275,
+ "static_ip": true,
+ "status_msg": "success, running jjziets/vasttest_latest/jupyter",
+ "storage_cost": 0.14933333333333335,
+ "storage_total_cost": 0.004148148148148148,
+ "template_hash_id": null,
+ "time_remaining": "Unlimited",
+ "time_remaining_isbid": "Unlimited",
+ "total_flops": 72.25344,
+ "verification": "unverified",
+ "vmem_usage": 0.550781,
+ "vram_costperhour": 1.2252219659627068e-05,
+ "webpage": null
+}

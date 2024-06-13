@@ -6,12 +6,11 @@ function is_instance {
   max_retries=3
 
   while [ $retry_count -lt $max_retries ]; do
-    # Run the command to get the instance details
-    json_output=$(./vast show instance "$id" --raw 2>/dev/null)
+    # Run the command and save the output
+    json_output=$(./vast show instances --raw 2>/dev/null)
 
     # Check the return status of the command
     if [ $? -eq 0 ]; then
-      # Break the loop if command is successful
       break
     fi
 
@@ -20,34 +19,35 @@ function is_instance {
 
     # If we've exhausted our retries, exit
     if [ $retry_count -eq $max_retries ]; then
-      echo "unknown"
+      # You can uncomment any of the below lines or add more as per your requirements
+      #echo "unknown"
+      #echo "$machine_id status is unknown" >> Error_testresults.log
+      #./vast destroy instance  $instances_id
       return
     fi
   done
 
-  # Parse the intended status from the JSON output
-  intended_status=$(echo "$json_output" | jq -r '.intended_status // "unknown"')
+  # Convert the JSON array to a Bash array
+  mapfile -t instances < <(echo "$json_output" | jq -r '.[] | @base64')
 
-  case $intended_status in
-    "running")
-      echo "running"
-      ;;
-    "offline")
-      echo "offline"
-      ;;
-    "exited")
-      echo "exited"
-      ;;
-    "unknown")
-      echo "unknown"
-      ;;
-    "created")
-      echo "created"
-      ;;
-    *)
-      echo "unknown"
-      ;;
-  esac
+  # Now we can loop over the instances array
+  for instance in "${instances[@]}"; do
+    # Decode the instance from base64 back to JSON
+    instance_json=$(echo "$instance" | base64 --decode)
+
+    # Extract the ID from the JSON
+    instance_id=$(echo "$instance_json" | jq -r '.id')
+
+    # If this is the instance we're looking for
+    if [ "$instance_id" = "$id" ]; then
+      # Extract and print true status
+      status=$(echo "$instance_json" | jq -r 'if .id != null then "false" else "true" end')
+      echo "$status"
+      return
+    fi
+  done
+
+  echo "false"
 }
 
 # Get the IP and port from command line arguments
@@ -56,9 +56,10 @@ PORT=$2
 instances_id=$3
 machine_id=$4
 
-# Check if four arguments were provided
+
+# Check if two arguments were provided
 if [ "$#" -ne 4 ]; then
-    echo "Usage: ./machinetester.sh <IP> <Port> <instances_id> <machine_id>"
+    echo "Usage: ./ <IP> <Port> <instances_id> <machine_id>"
     echo "$machine_id:$instances_id usage error " >> Error_testresults.log
     exit 1
 fi
@@ -98,44 +99,11 @@ if flock -n "$lock_file" -c "true"; then
 
     # Check if the instance is still running
     instance_check_time=0
-    while [ $instance_check_time -lt 300 ]; do
-        status=$(is_instance "$instances_id")
-        
-        case $status in
-          "running")
-            echo "Instance $instances_id is running."
-            ;;
-          "offline")
-            echo "$machine_id:$instances_id Unexpected offline during testing" >> Error_testresults.log
-            ./vast destroy instance "$instances_id"
-            exit 1
-            ;;
-          "exited")
-            echo "$machine_id:$instances_id Unexpected exit of an instance during testing." >> Error_testresults.log
-            ./vast destroy instance "$instances_id"
-            exit 1
-            ;;
-          "unknown")
-            echo "$machine_id:$instances_id instance not found while testing." >> Error_testresults.log
-            exit 1
-            ;;
-          "created")
-            echo "$machine_id:$instances_id instance recreated unexpectedly while running tests." >> Error_testresults.log
-            ./vast destroy instance "$instances_id"
-            exit 1
-            ;;
-          *)
-            echo "$machine_id:$instances_id Unknown status: $status" >> Error_testresults.log
-            exit 1
-            ;;
-        esac
-
+    while [ "$(is_instance "$instances_id")" = "true" ] && [ $instance_check_time -lt 300 ]; do
         sleep 60
         ((instance_check_time+=60))
+        ./vast destroy instance "$instances_id"
     done
-
-    # Destroy the instance after the loop completes if it was running
-    ./vast destroy instance "$instances_id"
 
     # Remove the lock file
     rm "$lock_file"
