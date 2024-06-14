@@ -33,7 +33,7 @@ result=$?
 
 # If requirements are not met and --ignore-requirements is not set, exit
 if [ $result -ne 0 ] && [ "$ignore_requirements" = false ]; then
-    echo "Machine search requirements check failed. Exiting."
+    echo "Machine search requirements check failed. Ensure the machine is listed and meets the above requirements. Exiting."
     exit 1
 fi
 
@@ -41,7 +41,7 @@ fi
 if [ $result -eq 0 ]; then
     echo "Machine search requirements met. Continuing with the script."
 else
-    echo "Ignoring machine search requirements failure and continuing with the script."
+    echo "Ignoring machine search requirements failure and continuing with the script. This might not work."
 fi
 
 # Continue with other operations (e.g., starting tests) here

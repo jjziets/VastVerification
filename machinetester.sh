@@ -71,6 +71,7 @@ mkdir -p "/tmp/machine_tester_locks_second"
 # Attempt to acquire the lock
 if flock -n "$lock_file" -c "true"; then
     SECONDS=0  # reset the SECONDS counter
+    no_response_seconds=0  # Track how long there has been no response
 
     while [ $SECONDS -lt 300 ]; do
         # Check if script has been running for longer than 5 minutes
@@ -96,36 +97,25 @@ if flock -n "$lock_file" -c "true"; then
             break
         fi
 
-        # Check the instance status using is_instance function
-        status=$(is_instance "$instances_id")
-        case $status in
-          "running")
-            echo "Instance $instances_id is running."
-            ;;
-          "offline")
-            echo "$machine_id:$instances_id Unexpected offline during testing." >> Error_testresults.log
-            ./vast destroy instance "$instances_id"
-            exit 1
-            ;;
-          "exited")
-            echo "$machine_id:$instances_id Unexpected exit of an instance during testing." >> Error_testresults.log
-            ./vast destroy instance "$instances_id"
-            exit 1
-            ;;
-          "created")
-            echo "$machine_id:$instances_id instance recreated unexpectedly while running tests." >> Error_testresults.log
-            ./vast destroy instance "$instances_id"
-            exit 1
-            ;;
-          *)
-            echo "$machine_id:$instances_id Unknown status: $status." >> Error_testresults.log
-            ./vast destroy instance "$instances_id"
-           exit 1
-            ;;
-        esac
+        # If no response is received, increment the no_response_seconds counter
+        if [ -z "$message" ]; then
+            ((no_response_seconds+=60))
+        else
+            no_response_seconds=0  # Reset if a response is received
+        fi
 
-        # Wait for 60 seconds before the next iteration
-        sleep 60
+        # If no response for 60 seconds and instance is still running, log the fault and exit
+        if [ $no_response_seconds -ge 60 ]; then
+            status=$(is_instance "$instances_id")
+            if [ "$status" == "running" ]; then
+                echo "$machine_id:$instances_id No response from port $PORT for 60s with running instance" >> Error_testresults.log
+                ./vast destroy instance "$instances_id"
+                exit 1
+            fi
+        fi
+
+        # Wait for 20 seconds before the next iteration
+        sleep 20
     done
 
     # Destroy the instance after the loop completes if it was running
