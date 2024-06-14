@@ -5,18 +5,49 @@
 # local.sh  has 5min to get a responce from remote.sh if it does not it will write to progress.log  machineID: no responce from direct port 
 # if the instance status_msg show error or if the instance don't start in 10min time autoverify.sh will destory the instance and write the reason to the Error_testresults.log
 
+# Usage function
+usage() {
+    echo "Usage: $0 [--ignore-requirements] <machine_id>"
+    echo "  --ignore-requirements: Optional switch to ignore the minimum requirements check and run tests regardless."
+    exit 1
+}
 
-# Check if exactly one argument is provided
+# Check for --ignore-requirements switch
+ignore_requirements=false
+if [ "$1" == "--ignore-requirements" ]; then
+    ignore_requirements=true
+    shift # Shift the arguments to the left to remove the switch from the list
+fi
+
+# Check if exactly one argument (machine_id) is provided
 if [ "$#" -ne 1 ]; then
-    echo "Usage: $0 <machine_id>"
+    usage
+fi
+
+# Assign the machine_id to a variable
+machine_id=$1
+
+# Always check machine requirements
+./check_machine_requirements.sh "$machine_id"
+result=$?
+
+# If requirements are not met and --ignore-requirements is not set, exit
+if [ $result -ne 0 ] && [ "$ignore_requirements" = false ]; then
+    echo "Machine search requirements check failed. Exiting."
     exit 1
 fi
 
-# Call the check_machine_requirements.sh script with machine_id as the first argument
-./check_machine_requirements.sh $1 || { echo "Machine requirements check failed. Exiting."; exit 1; }
+# Continue with other operations if the check passes or --ignore-requirements is set
+if [ $result -eq 0 ]; then
+    echo "Machine search requirements met. Continuing with the script."
+else
+    echo "Ignoring machine search requirements failure and continuing with the script."
+fi
 
-# Continue with other operations if the check passes
-echo "Machine requirements met. Continuing with the script."
+# Continue with other operations (e.g., starting tests) here
+
+echo "Starting tests for machine_id: $machine_id"
+
 
 declare -A machine_ids
 declare -A public_ipaddrs
@@ -242,7 +273,7 @@ function get_actual_status {
 
 
 # Fetch data from the system
-tempOffers=($(./vast search offers  --limit 65535  "machine_id=$1 verified=any cuda_vers>=12.4 direct_port_count>3 pcie_bw>3 inet_down>10 inet_up>10 gpu_ram>7"  -o 'dlperf-'  | sed 's/|/ /'  | awk '{print $1,$11,$19,$20}'))
+tempOffers=($(./vast search offers "machine_id=$1 verified=any"  -o 'dlperf-'  | sed 's/|/ /'  | awk '{print $1,$11,$19,$20}'))
 
 
 
@@ -561,9 +592,9 @@ done
 
 # Check if the machine_id is present in Pass_testresults.log
 if grep -q "$machine_id" "Pass_testresults.log"; then
-    echo "Pass_testresults.log"
+    cat "Pass_testresults.log"
 else
-    echo "Error_testresults.log"
+    cat "Error_testresults.log"
 fi
 
 echo "Exit: done testing"
