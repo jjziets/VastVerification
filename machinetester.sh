@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# Function to check the status of an instance
 function is_instance {
   id=$1
   retry_count=0
@@ -71,7 +72,7 @@ mkdir -p "/tmp/machine_tester_locks_second"
 if flock -n "$lock_file" -c "true"; then
     SECONDS=0  # reset the SECONDS counter
 
-    while true; do
+    while [ $SECONDS -lt 300 ]; do
         # Check if script has been running for longer than 5 minutes
         if [ $SECONDS -gt 300 ]; then
             echo "$machine_id:$instances_id Time out while stress testing " >> Error_testresults.log
@@ -86,27 +87,23 @@ if flock -n "$lock_file" -c "true"; then
         if [[ "$message" == "DONE" ]]; then
             echo "$machine_id" >> Pass_testresults.log
             ./vast destroy instance  $instances_id
+            exit 1
             break
         elif [[ "$message" == ERROR* ]]; then
             echo "$machine_id:$instances_id $message" >> Error_testresults.log
             ./vast destroy instance  $instances_id
+            exit 1
             break
         fi
 
-        sleep 1
-    done
-
-    # Check if the instance is still running
-    instance_check_time=0
-    while [ $instance_check_time -lt 300 ]; do
+        # Check the instance status using is_instance function
         status=$(is_instance "$instances_id")
-        
         case $status in
           "running")
             echo "Instance $instances_id is running."
             ;;
           "offline")
-            echo "$machine_id:$instances_id Unexpected offline during testing" >> Error_testresults.log
+            echo "$machine_id:$instances_id Unexpected offline during testing." >> Error_testresults.log
             ./vast destroy instance "$instances_id"
             exit 1
             ;;
@@ -115,23 +112,20 @@ if flock -n "$lock_file" -c "true"; then
             ./vast destroy instance "$instances_id"
             exit 1
             ;;
-          "unknown")
-            echo "$machine_id:$instances_id instance not found while testing." >> Error_testresults.log
-            exit 1
-            ;;
           "created")
             echo "$machine_id:$instances_id instance recreated unexpectedly while running tests." >> Error_testresults.log
             ./vast destroy instance "$instances_id"
             exit 1
             ;;
           *)
-            echo "$machine_id:$instances_id Unknown status: $status" >> Error_testresults.log
-            exit 1
+            echo "$machine_id:$instances_id Unknown status: $status." >> Error_testresults.log
+            ./vast destroy instance "$instances_id"
+           exit 1
             ;;
         esac
 
+        # Wait for 60 seconds before the next iteration
         sleep 60
-        ((instance_check_time+=60))
     done
 
     # Destroy the instance after the loop completes if it was running

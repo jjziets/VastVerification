@@ -12,6 +12,11 @@ if [ "$#" -ne 1 ]; then
     exit 1
 fi
 
+# Call the check_machine_requirements.sh script with machine_id as the first argument
+./check_machine_requirements.sh $1 || { echo "Machine requirements check failed. Exiting."; exit 1; }
+
+# Continue with other operations if the check passes
+echo "Machine requirements met. Continuing with the script."
 
 declare -A machine_ids
 declare -A public_ipaddrs
@@ -237,7 +242,7 @@ function get_actual_status {
 
 
 # Fetch data from the system
-tempOffers=($(./vast search offers  --limit 65535  "machine_id=$1 verified=any cuda_vers>=12.0 direct_port_count>3 pcie_bw>3 inet_down>10 inet_up>10 gpu_ram>7"  -o 'dlperf-'  | sed 's/|/ /'  | awk '{print $1,$11,$19,$20}'))
+tempOffers=($(./vast search offers  --limit 65535  "machine_id=$1 verified=any cuda_vers>=12.4 direct_port_count>3 pcie_bw>3 inet_down>10 inet_up>10 gpu_ram>7"  -o 'dlperf-'  | sed 's/|/ /'  | awk '{print $1,$11,$19,$20}'))
 
 
 
@@ -554,4 +559,11 @@ for file in "${files[@]}"; do
     sed ':a;N;$!ba;s/\n/,/g' "$file" > "${file%.*}_comma.log"
 done
 
-echo "Exit: done with all instances"
+# Check if the machine_id is present in Pass_testresults.log
+if grep -q "$machine_id" "Pass_testresults.log"; then
+    echo "Pass_testresults.log"
+else
+    echo "Error_testresults.log"
+fi
+
+echo "Exit: done testing"

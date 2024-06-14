@@ -36,7 +36,7 @@ def main():
                 time.sleep(5)  # Suspend execution for 5 seconds
                 # Extrapolate to the batch size we're testing
                 estimated_memory_required = memory_for_batch_1 * batch_size
-                print(f'Batch size {batch_size}: Estimated memory required = {estimated_memory_required}, Single GPU memory = {single_gpu_memory}')
+#                print(f'Batch size {batch_size}: Estimated memory required = {estimated_memory_required}, Single GPU memory = {single_gpu_memory}')
                 if estimated_memory_required > single_gpu_memory:
                     print(f'Skipping batch size {batch_size} due to memory constraints.')
                     continue
