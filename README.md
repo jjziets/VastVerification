@@ -18,6 +18,15 @@ To qualify for detailed testing, a machine must:
   ```bash
   cuda_vers>=12.4 verified=any reliability>0.90 direct_port_count>3 pcie_bw>3 inet_down>10 inet_up>10 gpu_ram>7
   ```
+Presence of GPUs: The system must have one or more GPUs.
+Consistency of GPU Models: All GPUs in the system should be of the same model.
+VRAM Utilization: Each GPU should have at least 98% of its VRAM free.
+System RAM vs. VRAM: The total system RAM must be at least as large as the combined VRAM of all GPUs.
+CPU Cores: There should be at least 2 CPU cores available for each GPU in the system.
+Evaluate the GPU performance of a system by running benchmarks on the ResNet-18 model
+Simultaneously runs stress-ng to stress test the CPU and gpu_burn to stress test the GPU for 180 seconds.
+Ensures that the machine can handle high loads on both CPU and GPU concurrently without crashing or significant performance degradation.
+The docker image must be loaded in 2000s(33min) and the docker image should complete testing in 300s(5min)
 
 ## Project Components
 
