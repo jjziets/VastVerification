@@ -1,7 +1,3 @@
-Here’s a comprehensive README for your project, designed to help potential users understand the purpose, setup, and usage of your automated machine testing system.
-
----
-
 # Automated Machine Testing for Vast.ai Marketplace
 
 ## Overview
@@ -131,6 +127,3 @@ Contributions to improve the testing scripts or Docker setup are welcome. Please
 
 This project is licensed under the MIT License. See the LICENSE file for details.
 
----
-
-Feel free to customize this README to better fit your project's specific details and requirements. This template provides a comprehensive overview and guides users through setup and usage effectively.
