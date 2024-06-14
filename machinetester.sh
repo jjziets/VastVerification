@@ -82,39 +82,64 @@ if flock -n "$lock_file" -c "true"; then
         fi
 
         # Send an 'EOT' message and receive response
-        message=$(echo "EOT" | nc -w 5 $IP $PORT)
+        #message=$(echo "EOT" | nc -w 5 $IP $PORT)
+
+        # Log the response for debugging purposes
+        echo "Received message: '$message'"
 
         # If the message is 'DONE' or starts with 'ERROR', exit the loop
         if [[ "$message" == "DONE" ]]; then
             echo "$machine_id" >> Pass_testresults.log
             ./vast destroy instance  $instances_id
             exit 1
-            break
         elif [[ "$message" == ERROR* ]]; then
             echo "$machine_id:$instances_id $message" >> Error_testresults.log
             ./vast destroy instance  $instances_id
             exit 1
-            break
         fi
 
         # If no response is received, increment the no_response_seconds counter
         if [ -z "$message" ]; then
-            ((no_response_seconds+=60))
+            ((no_response_seconds+=20))
         else
             no_response_seconds=0  # Reset if a response is received
         fi
 
-        # If no response for 60 seconds and instance is still running, log the fault and exit
-        if [ $no_response_seconds -ge 60 ]; then
-            status=$(is_instance "$instances_id")
-            if [ "$status" == "running" ]; then
+        # Check the instance status using is_instance function
+        status=$(is_instance "$instances_id")
+        case $status in
+          "running")
+            echo "Instance $instances_id is running."
+            # If no response for 60 seconds and instance is still running, log the fault and exit
+            if [ $no_response_seconds -ge 60 ]; then
                 echo "$machine_id:$instances_id No response from port $PORT for 60s with running instance" >> Error_testresults.log
                 ./vast destroy instance "$instances_id"
                 exit 1
             fi
-        fi
+           ;;
+          "offline")
+            echo "$machine_id:$instances_id Unexpected offline during testing." >> Error_testresults.log
+            ./vast destroy instance "$instances_id"
+            exit 1
+            ;;
+          "exited")
+            echo "$machine_id:$instances_id Unexpected exit of an instance during testing." >> Error_testresults.log
+            ./vast destroy instance "$instances_id"
+            exit 1
+            ;;
+          "created")
+            echo "$machine_id:$instances_id instance recreated unexpectedly while running tests." >> Error_testresults.log
+            ./vast destroy instance "$instances_id"
+            exit 1
+            ;;
+          *)
+            echo "$machine_id:$instances_id Unknown status: $status." >> Error_testresults.log
+            ./vast destroy instance "$instances_id"
+            exit 1
+            ;;
+        esac
 
-        # Wait for 20 seconds before the next iteration
+        # Wait for 20 seconds before the next iteration (reduce from 60 seconds for quicker checks)
         sleep 20
     done
 
