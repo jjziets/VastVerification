@@ -71,6 +71,12 @@ Before you start using `./autoverify_machineid.sh`, ensure you have the followin
      chmod +x check_machine_requirements.sh
      chmod +x machinetester.sh
      ```
+3. **Installing jq on Ubuntu or Debian-based Systems**:
+
+     ```bash
+     sudo apt update
+     sudo apt install jq -y
+    ```
 
 ### Using `./autoverify_machineid.sh`
 
