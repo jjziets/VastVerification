@@ -8,7 +8,7 @@
 # Usage function
 usage() {
     echo "Usage: $0 [--ignore-requirements] <machine_id>"
-    echo "  --ignore-requirements: Optional switch to ignore the minimum requirements check and run tests regardless."
+    echo "  --ignore-requirements: Optional switch to ignore the minimum search requirements check and run tests regardless."
     exit 1
 }
 
