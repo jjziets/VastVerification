@@ -18,15 +18,104 @@ To qualify for detailed testing, a machine must:
   ```bash
   cuda_vers>=12.4 verified=any reliability>0.90 direct_port_count>3 pcie_bw>3 inet_down>10 inet_up>10 gpu_ram>7
   ```
-Presence of GPUs: The system must have one or more GPUs.
-Consistency of GPU Models: All GPUs in the system should be of the same model.
-VRAM Utilization: Each GPU should have at least 98% of its VRAM free.
-System RAM vs. VRAM: The total system RAM must be at least as large as the combined VRAM of all GPUs.
-CPU Cores: There should be at least 2 CPU cores available for each GPU in the system.
-Evaluate the GPU performance of a system by running benchmarks on the ResNet-18 model
-Simultaneously runs stress-ng to stress test the CPU and gpu_burn to stress test the GPU for 180 seconds.
-Ensures that the machine can handle high loads on both CPU and GPU concurrently without crashing or significant performance degradation.
-The docker image must be loaded in 2000s(33min) and the docker image should complete testing in 300s(5min)
+- Presence of GPUs: The system must have one or more GPUs.
+- Consistency of GPU Models: All GPUs in the system should be of the same model.
+- VRAM Utilization: Each GPU should have at least 98% of its VRAM free.
+- System RAM vs. VRAM: The total system RAM must be at least as large as the combined VRAM of all GPUs.
+- CPU Cores: There should be at least 2 CPU cores available for each GPU in the system.
+- Evaluate the GPU performance of a system by running benchmarks on the ResNet-18 model
+- Simultaneously runs stress-ng to stress test the CPU and gpu_burn to stress test the GPU for 180 seconds.
+- Ensures that the machine can handle high loads on both CPU and GPU concurrently without crashing or significant performance degradation.
+- The docker image must be loaded in 2000s(33min) and the docker image should complete testing in 300s(5min)
+
+
+## Step-by-Step Guide: Using `./autoverify_machineid.sh`
+
+### Overview
+
+The `autoverify_machineid.sh` script is part of a suite of tools designed to automate the testing of machines on the Vast.ai marketplace. This script specifically tests a single machine to determine if it meets the minimum requirements necessary for further verification.
+
+### Prerequisites
+
+Before you start using `./autoverify_machineid.sh`, ensure you have the following:
+
+1. **Vast.ai Command Line Interface (vastcli)**: This tool is used to interact with the Vast.ai platform.
+2. **Docker**: Docker should be installed and configured on the target machines.
+
+### Setup and Installation
+
+1. **Download and Setup `vastcli`**:
+   - Download the Vast.ai CLI tool using the following command:
+     ```bash
+     wget https://raw.githubusercontent.com/vast-ai/vast-python/master/vast.py -O vast
+     chmod +x vast
+     ```
+
+   - Set your Vast.ai API key:
+     ```bash
+     ./vast set api-key 6189d1be9f15ad2dced0ac4e3dfd1f648aeb484d592e8ad13aaf50aeedd24c07
+     ```
+
+2. **Clone the Repository**:
+   - Clone the project repository to your local machine:
+     ```bash
+     git clone <repository-url>
+     cd <repository-directory>
+     ```
+
+3. **Make Scripts Executable**:
+   - Change the permissions of the main scripts to make them executable:
+     ```bash
+     chmod +x autoverify.sh
+     chmod +x autoverify_machineid.sh
+     chmod +x check_machine_requirements.sh
+     chmod +x machinetester.sh
+     ```
+3. **Installing jq and nc on Ubuntu or Debian-based Systems**:
+
+     ```bash
+     sudo apt update
+     sudo apt install jq netcat  -y
+    ```
+
+### Using `./autoverify_machineid.sh`
+
+1. **Check Machine Requirements**:
+   - The `./autoverify_machineid.sh` script is designed to test if a single machine meets the minimum requirements for verification. This is useful for hosts who want to verify their own machines.
+   - To test a specific machine by its `machine_id`, use the following command:
+     ```bash
+     ./autoverify_machineid.sh <machine_id>
+     ```
+     Replace `<machine_id>` with the actual ID of the machine you want to test.
+
+### Monitoring and Results
+
+- **Progress and Results Logging**:
+  - The script logs the progress and results of the tests.
+  - Successful results and machines that pass the requirements will be logged in `Pass_testresults.log`.
+  - Machines that do not meet the requirements or encounter errors during testing will be logged in `Error_testresults.log`.
+
+- **Understanding the Logs**:
+  - **`Pass_testresults.log`**: This file contains entries for machines that successfully passed all tests.
+  - **`Error_testresults.log`**: This file contains entries for machines that failed to meet the minimum requirements or encountered errors during testing.
+
+### Example Usage
+
+Here’s how you can run the `autoverify_machineid.sh` script to test a machine with `machine_id` 10921:
+
+```bash
+./autoverify_machineid.sh 10921
+```
+
+### Troubleshooting
+
+- **API Key Issues**: Ensure your API key is correctly set using `./vast set api-key <your-api-key>`.
+- **Permission Denied**: If you encounter permission issues, make sure the script files have executable permissions (`chmod +x <script_name>`).
+- **Connection Issues**: Verify your network connection and ensure the Vast.ai CLI can communicate with the Vast.ai servers.
+
+### Summary
+
+By following this guide, you will be able to use the `./autoverify_machineid.sh` script to test individual machines on the Vast.ai marketplace. This process helps ensure that machines meet the required specifications for GPU and system performance, making them candidates for further verification and use in the marketplace.
 
 ## Project Components
 
