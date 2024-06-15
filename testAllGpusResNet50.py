@@ -38,10 +38,10 @@ def main():
                 estimated_memory_required = memory_for_batch_1 * batch_size
 #                print(f'Batch size {batch_size}: Estimated memory required = {estimated_memory_required}, Single GPU memory = {single_gpu_memory}')
                 if estimated_memory_required > single_gpu_memory:
-                    print(f'Skipping batch size {batch_size} due to memory constraints.')
+#                    print(f'Skipping batch size {batch_size} due to memory constraints.')
                     continue
             except Exception as e:
-                print(f'Failed to estimate memory requirements for batch size {batch_size}: {e}')
+#                print(f'Failed to estimate memory requirements for batch size {batch_size}: {e}')
                 continue
 
         try:
@@ -76,7 +76,7 @@ def main():
 
         except RuntimeError as e:
             if 'out of memory' in str(e):
-                print(f'Failed to execute the model with batch size {batch_size} due to memory constraints: {e}')
+#                print(f'Failed to execute the model with batch size {batch_size} due to memory constraints: {e}')
                 torch.cuda.empty_cache()  # Clear GPU memory cache
                 model_failed = True  # Model run failed, set the model_failed flag
                 continue

@@ -12,6 +12,25 @@ usage() {
     exit 1
 }
 
+
+# Function to install a package if it's not already installed
+install_if_missing() {
+    if ! command_exists "$1"; then
+        echo "$1 is not installed. Installing..."
+        if [ "$needs_update" = true ]; then
+            sudo apt-get update
+            needs_update=false
+        fi
+        sudo apt-get install -y "$1"
+    else
+        echo "$1 is already installed."
+    fi
+}
+
+# Check and install jq and nc if they are not installed
+install_if_missing "jq"
+install_if_missing "netcat"
+
 # Check for --ignore-requirements switch
 ignore_requirements=false
 if [ "$1" == "--ignore-requirements" ]; then
@@ -26,6 +45,39 @@ fi
 
 # Assign the machine_id to a variable
 machine_id=$1
+
+# URLs of the files to check and download
+URLS=(
+    "https://github.com/jjziets/VastVerification/releases/download/0.1-beta/machinetester.sh"
+    "https://github.com/jjziets/VastVerification/releases/download/0.1-beta/check_machine_requirements.sh"
+)
+
+# Loop through each URL
+for URL in "${URLS[@]}"; do
+    # Extract the filename from the URL
+    FILE=$(basename "$URL")
+    
+    # Check if the file exists in the current directory
+    if [ -f "$FILE" ]; then
+        echo "$FILE already exists."
+    else
+        # Download the file if it does not exist
+        echo "Downloading $FILE..."
+        curl -LO "$URL"
+
+        # Check if the download was successful
+        if [ $? -eq 0 ]; then
+            echo "$FILE downloaded successfully."
+            # Make the file executable
+            chmod +x "$FILE"
+            echo "$FILE is now executable."
+        else
+            echo "Failed to download $FILE. Exiting script."
+            exit 1  # Exit the script with a status of 1 to indicate an error
+        fi
+    fi
+done
+
 
 # Always check machine requirements
 ./check_machine_requirements.sh "$machine_id"
@@ -452,7 +504,7 @@ while (( ${#active_instance_id[@]} < 20 && ${#Offers[@]} > 0 )) || (( ${#active_
 	        elif [ $exit_code -eq 0 ]; then
 	 		# Lock file for this script
 			master_lock_file="$lock_dir/master_lock"
-                        ./machinetester.sh "$public_ip" "$public_port" "$instance_id" "$machine_id" &
+                        ./machinetester.sh "$public_ip" "$public_port" "$instance_id" "$machine_id" --debugging &
 	                echo "$instance_id: starting machinetester $public_ip $public_port $instance_id $machine_id"
                         echo "$instance_id $machine_id $public_ip $public_port started" >> machinetester.txt
 			to_remove+=("$instance_id")

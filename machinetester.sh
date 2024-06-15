@@ -1,4 +1,6 @@
 #!/bin/bash
+# Initialize debugging flag
+debugging=false
 
 # Function to check the status of an instance
 function is_instance {
@@ -51,6 +53,11 @@ function is_instance {
   esac
 }
 
+# Check if the 5th argument is --debugging
+if [ "$5" == "--debugging" ]; then
+    debugging=true
+fi
+
 # Get the IP and port from command line arguments
 IP=$1
 PORT=$2
@@ -84,8 +91,10 @@ if flock -n "$lock_file" -c "true"; then
         # Send an 'EOT' message and receive response
         message=$(echo "EOT" | nc -w 5 $IP $PORT)
 
-        # Log the response for debugging purposes
-        echo "Received message: '$message'"
+        # Log the response for debugging purposes if debugging is enabled
+        if [ "$debugging" = true ]; then
+            echo "Received message: '$message'"
+        fi
 
         # If the message is 'DONE' or starts with 'ERROR', exit the loop
         if [[ "$message" == "DONE" ]]; then
