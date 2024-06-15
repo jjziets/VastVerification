@@ -12,6 +12,10 @@ usage() {
     exit 1
 }
 
+# Function to check if a command exists
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
 
 # Function to install a package if it's not already installed
 install_if_missing() {
@@ -50,13 +54,13 @@ machine_id=$1
 URLS=(
     "https://github.com/jjziets/VastVerification/releases/download/0.1-beta/machinetester.sh"
     "https://github.com/jjziets/VastVerification/releases/download/0.1-beta/check_machine_requirements.sh"
+    "https://github.com/jjziets/VastVerification/releases/download/0.1-beta/destroy_all_instances.sh"
 )
 
 # Loop through each URL
 for URL in "${URLS[@]}"; do
     # Extract the filename from the URL
     FILE=$(basename "$URL")
-    
     # Check if the file exists in the current directory
     if [ -f "$FILE" ]; then
         echo "$FILE already exists."
