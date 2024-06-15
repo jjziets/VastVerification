@@ -88,6 +88,12 @@ Before you start using `./autoverify_machineid.sh`, ensure you have the followin
      ```
      Replace `<machine_id>` with the actual ID of the machine you want to test.
 
+2. **To Ignore Requirements Check**:
+    ```bash
+    ./autoverify_machineid.sh --ignore-requirements <machine_id>
+    ```
+    This command runs the tests for the machine, regardless of whether it meets the minimum requirements.
+
 ### Monitoring and Results
 
 - **Progress and Results Logging**:
