@@ -82,7 +82,7 @@ if flock -n "$lock_file" -c "true"; then
         fi
 
         # Send an 'EOT' message and receive response
-        #message=$(echo "EOT" | nc -w 5 $IP $PORT)
+        message=$(echo "EOT" | nc -w 5 $IP $PORT)
 
         # Log the response for debugging purposes
         echo "Received message: '$message'"
