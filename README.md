@@ -54,7 +54,7 @@ Before you start using `./autoverify_machineid.sh`, ensure you have the followin
 
    - Set your Vast.ai API key:
      ```bash
-     ./vast set api-key 6189d1be9f15ad2dced0ac4e3dfd1f648aeb484d592e8ad13aaf50aeedd24c07
+     ./vast set api-key 6189d1be9f15ad2dced0ac4e3dfd1f648aeb484d592e83d13aaf50aee2d24c07
      ```
 
 2. **Download autoverify_machineid.sh**:
