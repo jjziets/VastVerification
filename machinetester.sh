@@ -2,6 +2,8 @@
 # Initialize debugging flag
 debugging=false
 
+
+
 # Function to check the status of an instance
 function is_instance {
   id=$1
@@ -53,10 +55,12 @@ function is_instance {
   esac
 }
 
-# Check if the 5th argument is --debugging
-if [ "$5" == "--debugging" ]; then
+# Check if the last argument is --debugging
+if [ "${!#}" == "--debugging" ]; then
     debugging=true
+    set -- "${@:1:4}"  # Drop the last argument to keep the first 4
 fi
+
 
 # Get the IP and port from command line arguments
 IP=$1
@@ -66,7 +70,7 @@ machine_id=$4
 
 # Check if four arguments were provided
 if [ "$#" -ne 4 ]; then
-    echo "Usage: ./machinetester.sh <IP> <Port> <instances_id> <machine_id>"
+    echo "Usage: ./machinetester.sh <IP> <Port> <instances_id> <machine_id> [--debugging]"
     echo "$machine_id:$instances_id usage error " >> Error_testresults.log
     exit 1
 fi
