@@ -40,7 +40,8 @@ The `autoverify_machineid.sh` script is part of a suite of tools designed to aut
 Before you start using `./autoverify_machineid.sh`, ensure you have the following:
 
 1. **Vast.ai Command Line Interface (vastcli)**: This tool is used to interact with the Vast.ai platform.
-2. **Docker**: Docker should be installed and configured on the target machines.
+2. **Vast.ai **: The machine should be listed on the vast marketplace.
+3. **Ubuntu OS**: The scripts are designed to run on Ubununt 20.04 or newer.
 
 ### Setup and Installation
 
@@ -56,27 +57,17 @@ Before you start using `./autoverify_machineid.sh`, ensure you have the followin
      ./vast set api-key 6189d1be9f15ad2dced0ac4e3dfd1f648aeb484d592e8ad13aaf50aeedd24c07
      ```
 
-2. **Clone the Repository**:
-   - Clone the project repository to your local machine:
+2. **Download autoverify_machineid.sh**:
+   - Use wget to download autoverify_machineid.sh to your local machine:
      ```bash
-     git clone <repository-url>
-     cd <repository-directory>
+     wget https://github.com/jjziets/VastVerification/releases/download/0.1-beta/autoverify_machineid.sh
      ```
-
+     
 3. **Make Scripts Executable**:
    - Change the permissions of the main scripts to make them executable:
      ```bash
-     chmod +x autoverify.sh
      chmod +x autoverify_machineid.sh
-     chmod +x check_machine_requirements.sh
-     chmod +x machinetester.sh
      ```
-3. **Installing jq and nc on Ubuntu or Debian-based Systems**:
-
-     ```bash
-     sudo apt update
-     sudo apt install jq netcat  -y
-    ```
 
 ### Using `./autoverify_machineid.sh`
 
