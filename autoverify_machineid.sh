@@ -55,6 +55,8 @@ URLS=(
     "https://github.com/jjziets/VastVerification/releases/download/0.1-beta/machinetester.sh"
     "https://github.com/jjziets/VastVerification/releases/download/0.1-beta/check_machine_requirements.sh"
     "https://github.com/jjziets/VastVerification/releases/download/0.1-beta/destroy_all_instances.sh"
+    "https://github.com/jjziets/VastVerification/releases/download/0.1-beta/get_port_from_instance_id.py"
+    "https://github.com/jjziets/VastVerification/releases/download/0.1-beta/https_client.py"
 )
 
 # Loop through each URL

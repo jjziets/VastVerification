@@ -1,64 +1,38 @@
-import os
+import socket
 import subprocess
-import ssl
-import http.server
 import threading
 import psutil
 
-# Define the port to listen on and the log file to serve
+# Define the port to listen on
 PORT = 5000
 LOG_FILE = 'progress.log'
-CERT_FILE = 'server.crt'
-KEY_FILE = 'server.key'
 
-# Function to generate a self-signed certificate and key if they don't exist
-def generate_self_signed_cert():
-    if not os.path.exists(CERT_FILE) or not os.path.exists(KEY_FILE):
-        print("Generating self-signed certificate and private key...")
-        try:
-            subprocess.run([
-                'openssl', 'req', '-new', '-newkey', 'rsa:2048', '-days', '365', '-nodes', '-x509',
-                '-subj', '/CN=localhost',
-                '-keyout', KEY_FILE, '-out', CERT_FILE
-            ], check=True)
-            print("Certificate and key generated successfully.")
-        except subprocess.CalledProcessError as e:
-            print(f"Failed to generate certificate and key: {e}")
-            exit(1)
-
-# Custom request handler to serve the content of progress.log
-class CustomHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
-    def do_GET(self):
-        # Serve the contents of progress.log
-        if self.path == '/progress':
-            self.send_response(200)
-            self.send_header('Content-type', 'text/plain')
-            self.end_headers()
-            if os.path.exists(LOG_FILE):
-                with open(LOG_FILE, 'r') as file:
-                    self.wfile.write(file.read().encode('utf-8'))
-            else:
-                self.wfile.write(b"No progress logged yet.\n")
+# Function to handle incoming connections
+def handle_connection(client_socket):
+    with open(LOG_FILE, 'r') as file:
+        lines = file.readlines()
+        if lines:
+            client_socket.sendall(''.join(lines).encode('utf-8'))
         else:
-            self.send_response(404)
-            self.end_headers()
-            self.wfile.write(b"404 Not Found")
+            client_socket.sendall('No progress logged yet.\n'.encode('utf-8'))
+    client_socket.close()
 
-# Generate the certificate and key if they don't exist
-generate_self_signed_cert()
+# Function to start the server
+def start_server():
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server_socket.bind(('0.0.0.0', PORT))
+    server_socket.listen(5)
+    print(f"Listening on port {PORT}...")
 
-# Function to start the HTTPS server
-def start_https_server():
-    httpd = http.server.HTTPServer(('0.0.0.0', PORT), CustomHTTPRequestHandler)
-    httpd.socket = ssl.wrap_socket(httpd.socket,
-                                   keyfile=KEY_FILE,
-                                   certfile=CERT_FILE,
-                                   server_side=True)
-    print(f"Serving HTTPS on port {PORT}...")
-    httpd.serve_forever()
+    while True:
+        client_socket, addr = server_socket.accept()
+        print(f"Accepted connection from {addr}")
+        client_handler = threading.Thread(target=handle_connection, args=(client_socket,))
+        client_handler.start()
 
-# Start the HTTPS server in a separate thread
-server_thread = threading.Thread(target=start_https_server)
+# Start the server in a separate thread
+server_thread = threading.Thread(target=start_server)
 server_thread.start()
 
 # Function to log messages to progress.log and print to stdout
@@ -72,6 +46,7 @@ def write_message(message):
     with open(LOG_FILE, 'w') as log_file:
         log_file.write(message + '\n')
     print(message)
+
 
 # Function to run tests and update the progress log
 def run_tests():
