@@ -8,8 +8,8 @@ function check_requirements {
   result=$(./vast search offers "machine_id=$machine_id verified=any rentable=true" --raw)
 
   # Check if the machine_id was found
-  if [ -z "$result" ]; then
-    echo "Machine ID $machine_id not found or not rentable."
+  if [ "$result" == "[]" ]; then
+    echo "Machine ID $machine_id not found or not rentable. Please ensure the machine is listed and not rented on demand."
     exit 1
   fi
 

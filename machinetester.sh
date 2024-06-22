@@ -147,7 +147,7 @@ if flock -n "$lock_file" -c "true"; then
             exit 1
             ;;
           *)
-            echo "$machine_id:$instances_id Unknown status: $status." >> Error_testresults.log
+            echo "$machine_id:$instances_id Unknown during stress testing. Possible crash or connection lost. Reported status: $status. " >> Error_testresults.log
             ./vast destroy instance "$instances_id"
             exit 1
             ;;

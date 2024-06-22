@@ -1,11 +1,6 @@
 #!/bin/bash
-#to be used with vastcli in a shell. it will sreach for all the systems  unverified systems that meets the createare and starts the docker image jjziets/vasttest:latest
-# in it will run a scrypt remote.sh that will test the system and report on port 5000
-# once the instance is running it will is start local.sh  scrypt detatched with the machineID, IP and Port. local.sh will talk to remote.sh on the system that is being tested and save the result to Pass_testresults.log  as machine_id:done or to Error_testresults.log machine_id: error and message
-# local.sh  has 5min to get a responce from remote.sh if it does not it will write to progress.log  machineID: no responce from direct port 
-# if the instance status_msg show error or if the instance don't start in 10min time autoverify.sh will destory the instance and write the reason to the Error_testresults.log
 
-# Usage function
+# Function to display usage information
 usage() {
     echo "Usage: $0 [--ignore-requirements] <machine_id>"
     echo "  --ignore-requirements: Optional switch to ignore the minimum search requirements check and run tests regardless."
@@ -26,8 +21,55 @@ install_if_missing() {
             needs_update=false
         fi
         sudo apt-get install -y "$1"
+    fi
+}
+
+# Function to check and update dependencies
+check_and_update_dependencies() {
+    local required_version="$1"
+    local version_file="version.ini"
+    local download_url="https://github.com/jjziets/VastVerification/releases/download/$required_version"
+
+    # Check if version.ini exists and read the current version
+    if [ -f "$version_file" ]; then
+        current_version=$(<"$version_file")
     else
-        echo "$1 is already installed."
+        current_version="none"
+    fi
+
+    # Compare versions and update if necessary
+    if [ "$current_version" != "$required_version" ]; then
+        echo "Updating dependencies to version $required_version..."
+
+        # List of files to download
+        local files=(
+            "machinetester.sh"
+            "check_machine_requirements.sh"
+            "destroy_all_instances.sh"
+            "get_port_from_instance_id.py"
+            "https_client.py"
+        )
+
+        # Download each file
+        for file in "${files[@]}"; do
+            echo "Downloading $file..."
+            curl -LO "$download_url/$file"
+            
+            if [ $? -eq 0 ]; then
+                echo "$file downloaded successfully."
+                chmod +x "$file"
+                echo "$file is now executable."
+            else
+                echo "Failed to download $file. Exiting script."
+                exit 1
+            fi
+        done
+
+        # Update the version file
+        echo "$required_version" > "$version_file"
+        echo "Updated $version_file to version $required_version."
+    else
+        echo "Dependencies are up to date."
     fi
 }
 
@@ -39,7 +81,7 @@ install_if_missing "netcat"
 ignore_requirements=false
 if [ "$1" == "--ignore-requirements" ]; then
     ignore_requirements=true
-    shift # Shift the arguments to the left to remove the switch from the list
+    shift
 fi
 
 # Check if exactly one argument (machine_id) is provided
@@ -50,58 +92,40 @@ fi
 # Assign the machine_id to a variable
 machine_id=$1
 
-# URLs of the files to check and download
+# Define the required version
+required_version="0.2-beta"  # Update this version as needed
+
+# Check and update dependencies
+check_and_update_dependencies "$required_version"
+
+# URLs of the files to check and download (this part remains the same)
 URLS=(
-    "https://github.com/jjziets/VastVerification/releases/download/0.1-beta/machinetester.sh"
-    "https://github.com/jjziets/VastVerification/releases/download/0.1-beta/check_machine_requirements.sh"
-    "https://github.com/jjziets/VastVerification/releases/download/0.1-beta/destroy_all_instances.sh"
-    "https://github.com/jjziets/VastVerification/releases/download/0.1-beta/get_port_from_instance_id.py"
-    "https://github.com/jjziets/VastVerification/releases/download/0.1-beta/https_client.py"
+    "https://github.com/jjziets/VastVerification/releases/download/$required_version/machinetester.sh"
+    "https://github.com/jjziets/VastVerification/releases/download/$required_version/check_machine_requirements.sh"
+    "https://github.com/jjziets/VastVerification/releases/download/$required_version/destroy_all_instances.sh"
+    "https://github.com/jjziets/VastVerification/releases/download/$required_version/get_port_from_instance_id.py"
+    "https://github.com/jjziets/VastVerification/releases/download/$required_version/https_client.py"
 )
 
 # Loop through each URL
 for URL in "${URLS[@]}"; do
-    # Extract the filename from the URL
     FILE=$(basename "$URL")
-    # Check if the file exists in the current directory
     if [ -f "$FILE" ]; then
-        echo "$FILE already exists."
+        echo -n ""
     else
-        # Download the file if it does not exist
         echo "Downloading $FILE..."
         curl -LO "$URL"
 
-        # Check if the download was successful
         if [ $? -eq 0 ]; then
             echo "$FILE downloaded successfully."
-            # Make the file executable
             chmod +x "$FILE"
             echo "$FILE is now executable."
         else
             echo "Failed to download $FILE. Exiting script."
-            exit 1  # Exit the script with a status of 1 to indicate an error
+            exit 1
         fi
     fi
 done
-
-
-# Always check machine requirements
-./check_machine_requirements.sh "$machine_id"
-result=$?
-
-# If requirements are not met and --ignore-requirements is not set, exit
-if [ $result -ne 0 ] && [ "$ignore_requirements" = false ]; then
-    echo "Machine search requirements check failed. Ensure the machine is listed and meets the above requirements. Exiting."
-    exit 1
-fi
-
-# Continue with other operations if the check passes or --ignore-requirements is set
-if [ $result -eq 0 ]; then
-    echo "Machine search requirements met. Continuing with the script."
-else
-    echo "Ignoring machine search requirements failure and continuing with the script. This might not work."
-fi
-
 # Continue with other operations (e.g., starting tests) here
 
 echo "Starting tests for machine_id: $machine_id"
