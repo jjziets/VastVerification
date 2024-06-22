@@ -81,7 +81,7 @@ install_if_missing "netcat"
 ignore_requirements=false
 if [ "$1" == "--ignore-requirements" ]; then
     ignore_requirements=true
-    shift
+    shift # Shift the arguments to the left to remove the switch from the list
 fi
 
 # Check if exactly one argument (machine_id) is provided
@@ -127,6 +127,25 @@ for URL in "${URLS[@]}"; do
     fi
 done
 # Continue with other operations (e.g., starting tests) here
+
+# Always check machine requirements
+./check_machine_requirements.sh "$machine_id"
+result=$?
+
+# If requirements are not met and --ignore-requirements is not set, exit
+if [ $result -ne 0 ] && [ "$ignore_requirements" = false ]; then
+    echo "Machine search requirements check failed. Ensure the machine is listed and meets the above requirements. Exiting."
+    exit 1
+fi
+
+# Continue with other operations if the check passes or --ignore-requirements is set
+if [ $result -eq 0 ]; then
+    echo "Machine search requirements met. Continuing with the script."
+else
+    echo "Ignoring machine search requirements failure and continuing with the script. This might not work."
+fi
+
+
 
 echo "Starting tests for machine_id: $machine_id"
 
