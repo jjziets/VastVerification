@@ -2,6 +2,13 @@
 # Initialize debugging flag
 debugging=false
 
+# Function to check if a variable is a non-negative integer
+is_non_negative_integer() {
+    case $1 in
+        ''|*[!0-9]*) return 1 ;;  # If not a number
+        *) return 0 ;;
+    esac
+}
 
 
 # Function to check the status of an instance
@@ -58,7 +65,7 @@ function is_instance {
 # Check if the last argument is --debugging
 if [ "${!#}" == "--debugging" ]; then
     debugging=true
-    set -- "${@:1:4}"  # Drop the last argument to keep the first 4
+    set -- "${@:1:5}"  # Drop the last argument to keep the first 4
 fi
 
 
@@ -67,10 +74,11 @@ IP=$1
 PORT=$2
 instances_id=$3
 machine_id=$4
+delay=$5
 
 # Check if four arguments were provided
-if [ "$#" -ne 4 ]; then
-    echo "Usage: ./machinetester.sh <IP> <Port> <instances_id> <machine_id> [--debugging]"
+if [ "$#" -ne 5 ]; then
+    echo "Usage: ./machinetester.sh <IP> <Port> <instances_id> <machine_id> <startup delay> [--debugging]"
     echo "$machine_id:$instances_id usage error " >> Error_testresults.log
     exit 1
 fi
@@ -83,6 +91,19 @@ mkdir -p "/tmp/machine_tester_locks_second"
 if flock -n "$lock_file" -c "true"; then
     SECONDS=0  # reset the SECONDS counter
     no_response_seconds=0  # Track how long there has been no response
+
+    # Validate the delay variable
+    if is_non_negative_integer "$delay"; then
+    	echo "Delay is a valid non-negative integer: $delay seconds"
+    	if [ "$delay" -gt 0 ]; then
+#    	    echo "Sleeping for $delay seconds"
+    	    sleep $delay
+    	else
+    	    echo "No need to sleep, delay is zero"
+    	fi
+    else
+    	echo "Invalid delay value: $delay. Skipping sleep."
+    fi
 
     while [ $SECONDS -lt 300 ]; do
         # Check if script has been running for longer than 5 minutes

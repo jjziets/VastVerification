@@ -93,7 +93,7 @@ fi
 machine_id=$1
 
 # Define the required version
-required_version="0.2-beta"  # Update this version as needed
+required_version="0.3-beta"  # Update this version as needed
 
 # Check and update dependencies
 check_and_update_dependencies "$required_version"
@@ -134,7 +134,7 @@ result=$?
 
 # If requirements are not met and --ignore-requirements is not set, exit
 if [ $result -ne 0 ] && [ "$ignore_requirements" = false ]; then
-    echo "Machine search requirements check failed. Ensure the machine is listed and meets the above requirements. Exiting."
+    echo "Machine search requirements check failed. Ensure the machine is listed and meets the above requirements add --ignore-requirements to to ingore this and run the test if possible. Exiting."
     exit 1
 fi
 
@@ -512,7 +512,6 @@ while (( ${#active_instance_id[@]} < 20 && ${#Offers[@]} > 0 )) || (( ${#active_
 	        fi
 	        # Calculate the running time for the instance
 	        start_time="${start_times[$instance_id]}" #get the start time of this instance.
-	        running_time=$(($current_time - $start_time)) # get the runtime of  instance.
 		if [ -z "${public_ipaddrs[$instance_id]}" ]; then
     		# If not, update the associative arrays
 			echo "Public IP for instance $instance_id is empty. Updating"
@@ -542,6 +541,7 @@ while (( ${#active_instance_id[@]} < 20 && ${#Offers[@]} > 0 )) || (( ${#active_
 	                echo "public_port for instance $instance_id is empty. Skipping..."
 	        	continue
 	        fi
+                running_time=$(($(date +%s) - $start_time)) # get the runtime of  instanc
 		if [ $exit_code -eq 2 ]; then
 	            echo "$machine_id:$instance_id No Direct Ports found get_status_msg = running"  >> Error_testresults.log
 
@@ -552,23 +552,19 @@ while (( ${#active_instance_id[@]} < 20 && ${#Offers[@]} > 0 )) || (( ${#active_
 	            continue  # We've modified the array in the loop, so we break and start the loop anew
 	        elif [ $exit_code -eq 0 ]; then
 			required_time=15 #Startup time before running the script 
+#			echo "required_time: $required_time   running_time: $running_time"
 			remaining_time=$(($required_time - $running_time))
-    			# If the remaining time is greater than zero, wait for that time
-			if [ $remaining_time -gt 0 ]; then
-			        echo "Waiting for $remaining_time seconds before starting the machinetester"
-        			sleep $remaining_time
-    			fi
                         # Lock file for this script
 			master_lock_file="$lock_dir/master_lock"
-                        ./machinetester.sh "$public_ip" "$public_port" "$instance_id" "$machine_id" --debugging &
-	                echo "$instance_id: starting machinetester $public_ip $public_port $instance_id $machine_id"
+                        ./machinetester.sh "$public_ip" "$public_port" "$instance_id" "$machine_id" "$remaining_time" --debugging &
+	                echo "$instance_id: starting machinetester $public_ip $public_port $instance_id $machine_id $remaining_time"
                         echo "$instance_id $machine_id $public_ip $public_port started" >> machinetester.txt
 			to_remove+=("$instance_id")
 			#active_instance_id[$i]='0'  # Mark this Instance for removal
 			echo "Mark this Instance $instance_id for removal"
 	                continue  # We've modified the array in the loop, so we break and start the loop anew
 		#check if it has been waiting for more than 15min or if the instance has been running for 1m without any net response
-	        elif (( $current_time - ${CreateTime[$instance_id]:-0} > 2000 )) || (( $running_time > 60 )); then
+	        elif (( $(date +%s) - ${CreateTime[$instance_id]:-0} > 2000 )) || (( $running_time > 60 )); then
 		    echo "$machine_id:$instance_id Time exceeded get_status_msg $instance_id" >> Error_testresults.log
 	            ./vast destroy instance "$instance_id" #destroy the instance
 	            to_remove+=("$instance_id")
@@ -579,7 +575,7 @@ while (( ${#active_instance_id[@]} < 20 && ${#Offers[@]} > 0 )) || (( ${#active_
 	        elif [ "$actual_status" == "loading" ]; then
 		#echo "Debug: CreateTime[$instance_id] = ${CreateTime[$instance_id]}"
 	         #check if it has been waiting for more than 15min
-		if (( $current_time - ${CreateTime[$instance_id]:-0} > 2000 )); then 
+		if (( $(date +%s) - ${CreateTime[$instance_id]:-0} > 2000 )); then 
 	            echo "$machine_id:$instance_id Time exceeded get_status_msg = loading" >> Error_testresults.log
 	            ./vast destroy instance "$instance_id" #destroy the instance
 		    to_remove+=("$instance_id")
@@ -623,7 +619,7 @@ while (( ${#active_instance_id[@]} < 20 && ${#Offers[@]} > 0 )) || (( ${#active_
 	            #active_instance_id[$i]='0'  # Mark this Instance for removal
                     echo "Mark this Instance $instance_id for removal"
 	            continue  # We've modified the array in the loop, so we break and start the loop anew
-       		 elif (( $current_time - ${CreateTime[$instance_id]} > 2000 )); then #check if it has been waiting for more than 10min
+       		 elif (( $(date +%s) - ${CreateTime[$instance_id]} > 2000 )); then #check if it has been waiting for more than 10min
         	    echo "$machine_id:$instance_id Time exceeded get_status_msg $instance_id" >> Error_testresults.log
            	    ./vast destroy instance "$instance_id" #destroy the instance
 		    to_remove+=("$instance_id")
