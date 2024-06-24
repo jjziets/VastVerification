@@ -551,7 +551,14 @@ while (( ${#active_instance_id[@]} < 20 && ${#Offers[@]} > 0 )) || (( ${#active_
 		    echo "Mark this Instance $instance_id for removal"
 	            continue  # We've modified the array in the loop, so we break and start the loop anew
 	        elif [ $exit_code -eq 0 ]; then
-	 		# Lock file for this script
+			required_time=15 #Startup time before running the script 
+			remaining_time=$(($required_time - $running_time))
+    			# If the remaining time is greater than zero, wait for that time
+			if [ $remaining_time -gt 0 ]; then
+			        echo "Waiting for $remaining_time seconds before starting the machinetester"
+        			sleep $remaining_time
+    			fi
+                        # Lock file for this script
 			master_lock_file="$lock_dir/master_lock"
                         ./machinetester.sh "$public_ip" "$public_port" "$instance_id" "$machine_id" --debugging &
 	                echo "$instance_id: starting machinetester $public_ip $public_port $instance_id $machine_id"
