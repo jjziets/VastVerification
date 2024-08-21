@@ -202,17 +202,50 @@ By following this guide, you will be able to use the `./autoverify_machineid.sh`
 
 The following are the specific requirements tested by each script:
 
-### remote.py
-- **Network Setup**: Verifies that the machine's networking is configured correctly and can handle communication on port 5000.
-- **Progress Reporting**: Monitors the status and reports back the progress of various tests.
+Here’s a summary of what each script checks or does:
 
-### testAllGpusResNet50.py
-- **GPU Performance**: Tests the machine's GPUs using the ResNet-50 model to evaluate their performance capabilities.
-- **Multi-GPU Testing**: Ensures that all GPUs in the machine can handle the workload effectively.
+### 1. **Bash Script: Machine Requirements Checker**
+   - **Purpose**: This script checks whether a machine (identified by a given `machine_id`) meets specific requirements for availability, CUDA version, reliability, direct ports, PCIe bandwidth, internet speeds, and GPU RAM.
+   - **Checks**:
+     - If the machine is found and is rentable.
+     - CUDA version is at least 12.4.
+     - Reliability is greater than 0.90.
+     - The number of direct ports is greater than 3.
+     - PCIe bandwidth is greater than 3.
+     - Internet download and upload speeds are both greater than 10 Mb/s.
+     - GPU RAM is greater than 7 GB.
+   - **Output**: If all requirements are met, it confirms the machine is suitable; otherwise, it lists which requirements are not met.
 
-### systemreqtest.py
-- **System Configuration**: Checks the overall system configuration including CPU, RAM, and disk space.
-- **Compatibility**: Ensures the machine meets the necessary system specifications for running GPU-intensive tasks.
+### 2. **Python Script: `remote.py`**
+   - **Purpose**: This script sets up a simple HTTPS server that serves the contents of a `progress.log` file and runs a series of system tests.
+   - **Functions**:
+     - **Generates a self-signed SSL certificate** if it doesn't exist.
+     - **Serves the `progress.log` file** on port 5000 over HTTPS.
+     - **Logs test progress** to `progress.log`.
+     - **Runs a sequence of tests**:
+       1. **System requirements test** (using `systemreqtest.py`).
+       2. **ResNet50 benchmark test** on all GPUs (using `testAllGpusResNet50.py`).
+       3. **Simultaneous stress tests** using `stress-ng` and `gpu-burn`.
+     - Logs the results of these tests, noting any failures.
+
+### 3. **Python Script: `systemreqtest.py`**
+   - **Purpose**: This script checks if the system meets minimum hardware requirements for GPU-intensive tasks.
+   - **Checks**:
+     - The number of GPUs and verifies they are of the same model.
+     - At least 98% of VRAM is free on each GPU.
+     - Total system RAM is greater than the sum of all GPUs' VRAM.
+     - The system has at least two CPU cores per GPU.
+   - **Output**: Confirms whether the system meets the requirements or identifies any deficiencies.
+
+### 4. **Python Script: `testAllGpusResNet50.py`**
+   - **Purpose**: This script benchmarks the ResNet50 model on all available GPUs to determine the maximum feasible batch size for training.
+   - **Checks**:
+     - Tries different batch sizes, starting from the largest, and tests if the GPU can handle them.
+     - Estimates if the available GPU memory is sufficient for the batch size.
+     - Runs the ResNet50 model with the tested batch size and records execution times.
+   - **Output**: Identifies the maximum batch size that the system can handle without running out of memory and exits with success or failure depending on the result.
+
+These scripts collectively ensure that the machine meets specific performance criteria, validate the hardware setup, and perform stress tests to confirm system stability under load.
 
 ## Contributions and Issues
 
