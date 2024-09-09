@@ -314,7 +314,7 @@ while (( ${#active_instance_id[@]} < 20 && ${#Offers[@]} > 0 )) || (( ${#active_
 	while (( ${#active_instance_id[@]} < 20 && ${#Offers[@]} > 0 )); do
        		next_offer="${Offers[0]}"  # Get the first offer
         	Offers=("${Offers[@]:1}")  # Remove the first offer from the Offers array
-            output=$(./vast create instance "$next_offer"  --image  jjziets/vasttest:latest  --jupyter --direct --env '-e TZ=PDT -e XNAME=XX4 -p 5000:5000' --disk 20 --onstart-cmd 'python3 remote.py')
+            output=$(./vast create instance "$next_offer"  --image  jjziets/vasttest:latest  --ssh --direct --env '-e TZ=PDT -e XNAME=XX4 -p 5000:5000' --disk 20 --onstart-cmd 'python3 remote.py')
 	    	echo "$output"
 
 	    # Check if the output starts with "Started. "
@@ -342,7 +342,7 @@ while (( ${#active_instance_id[@]} < 20 && ${#Offers[@]} > 0 )) || (( ${#active_
 
 	#*********************** start the testing 
 	#update_machine_id_and_ipaddr  ## update the machine_id and the ip address
-    to_remove=()  # Declare this before your loop starts
+	to_remove=()  # Declare this before your loop starts
 	for i in "${!active_instance_id[@]}"; do
  	    #current_time=$(date +%s)
 	    instance_id="${active_instance_id[$i]}"
@@ -384,7 +384,6 @@ while (( ${#active_instance_id[@]} < 20 && ${#Offers[@]} > 0 )) || (( ${#active_
 	                echo "public_port for instance $instance_id is empty. Skipping..."
 	        	continue
 	        fi
-                running_time=$(($(date +%s) - $start_time)) # get the runtime of  instance.
 		if [ $exit_code -eq 2 ]; then
 	            echo "$machine_id:$instance_id No Direct Ports found get_status_msg = running"  >> Error_testresults.log
 
@@ -398,6 +397,7 @@ while (( ${#active_instance_id[@]} < 20 && ${#Offers[@]} > 0 )) || (( ${#active_
 			master_lock_file="$lock_dir/master_lock"
                         required_time=15 #Startup time before running the script
 #                       echo "required_time: $required_time   running_time: $running_time"
+                	running_time=$(($(date +%s) - $start_time)) # get the runtime of  instance.
                         remaining_time=$(($required_time - $running_time))
                         ./machinetester.sh "$public_ip" "$public_port" "$instance_id" "$machine_id" "$remaining_time"&
 	                echo "$instance_id: starting machinetester $public_ip $public_port $instance_id $machine_id $remaining_time"

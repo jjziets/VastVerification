@@ -76,6 +76,7 @@ check_and_update_dependencies() {
 # Check and install jq and nc if they are not installed
 install_if_missing "jq"
 install_if_missing "netcat"
+install_if_missing "bc"
 
 # Check for --ignore-requirements switch
 ignore_requirements=false
@@ -471,7 +472,7 @@ while (( ${#active_instance_id[@]} < 20 && ${#Offers[@]} > 0 )) || (( ${#active_
 		else 
 		    echo "Next Offer: $next_offer"
 		fi
-                output=$(./vast create instance "$next_offer"  --image  jjziets/vasttest:latest  --jupyter --direct --env '-e TZ=PDT -e XNAME=XX4 -p 5000:5000' --disk 20 --onstart-cmd 'python3 remote.py')
+                output=$(./vast create instance "$next_offer"  --image  jjziets/vasttest:latest  --ssh --direct --env '-e TZ=PDT -e XNAME=XX4 -p 5000:5000' --disk 20 --onstart-cmd 'python3 remote.py')
 	    	echo "Output of create instance: $output"
 
 	    # Check if the output starts with "Started. "
