@@ -94,7 +94,7 @@ fi
 machine_id=$1
 
 # Define the required version
-required_version="0.3-beta"  # Update this version as needed
+required_version="0.4-beta"  # Update this version as needed
 
 # Check and update dependencies
 check_and_update_dependencies "$required_version"
