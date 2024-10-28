@@ -20,6 +20,7 @@ WORKDIR /pytorch-benchmark-volta
 # Copy the requirements file and scripts into the container
 COPY requirements.txt .
 COPY remote.py .
+COPY eccfunction.py .
 COPY testAllGpusResNet50.py .
 COPY systemreqtest.py .
 COPY gpu_burn .

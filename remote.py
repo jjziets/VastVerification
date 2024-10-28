@@ -99,7 +99,17 @@ def run_tests():
         write_message("ERROR 2: Test All GPU ResNet50 failed. " + result.stdout + " " + result.stderr)
         return  # Exit without logging "DONE"
 
-    # Third Test - Run stress-ng and gpu-burn simultaneously
+    # Third Test
+    log_message("Running ECC test on all GPUs...")
+    result = subprocess.run(['python3', 'eccfunction.py'], capture_output=True, text=True)
+    if result.returncode == 0:
+        log_message("TESTED : ECC test passed.")
+    else:
+        write_message("ERROR 3: ECC test failed. " + result.stdout + " " + result.stderr)
+        return  # Exit without logging "DONE"
+
+
+    # Forth Test - Run stress-ng and gpu-burn simultaneously
     log_message("Running stress-ng and gpu-burn tests simultaneously for 60 seconds...")
     cpu_cores = psutil.cpu_count(logical=True) - 1  # Use all CPU cores except one
     stress_ng_command = ['stress-ng', '--cpu', str(cpu_cores), '--timeout', '60s']
@@ -119,11 +129,11 @@ def run_tests():
              write_message("DONE")
         else:
             if stress_ng_process.returncode != 0:
-                write_message("ERROR 3: stress-ng test failed. " + stress_ng_stdout.decode() + " " + stress_ng_stderr.decode())
+                write_message("ERROR 4: stress-ng test failed. " + stress_ng_stdout.decode() + " " + stress_ng_stderr.decode())
             if gpu_burn_process.returncode != 0:
-                write_message("ERROR 4: gpu-burn test failed. " + gpu_burn_stdout.decode() + " " + gpu_burn_stderr.decode())
+                write_message("ERROR 5: gpu-burn test failed. " + gpu_burn_stdout.decode() + " " + gpu_burn_stderr.decode())
     except Exception as e:
-        write_message(f"ERROR 5: An exception occurred while running the tests: {str(e)}")
+        write_message(f"ERROR 6: An exception occurred while running the tests: {str(e)}")
 
 # Run the tests
 run_tests()
