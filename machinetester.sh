@@ -10,7 +10,6 @@ is_non_negative_integer() {
     esac
 }
 
-
 # Function to check the status of an instance
 function is_instance {
   id=$1
@@ -68,7 +67,6 @@ if [ "${!#}" == "--debugging" ]; then
     set -- "${@:1:5}"  # Drop the last argument to keep the first 4
 fi
 
-
 # Get the IP and port from command line arguments
 IP=$1
 PORT=$2
@@ -76,7 +74,7 @@ instances_id=$3
 machine_id=$4
 delay=$5
 
-# Check if four arguments were provided
+# Check if five arguments were provided
 if [ "$#" -ne 5 ]; then
     echo "Usage: ./machinetester.sh <IP> <Port> <instances_id> <machine_id> <startup delay> [--debugging]"
     echo "$machine_id:$instances_id usage error " >> Error_testresults.log
@@ -89,33 +87,19 @@ mkdir -p "/tmp/machine_tester_locks_second"
 
 # Attempt to acquire the lock
 if flock -n "$lock_file" -c "true"; then
-    SECONDS=0  # reset the SECONDS counter
+    SECONDS=0  # Reset the SECONDS counter
     no_response_seconds=0  # Track how long there has been no response
 
     # Validate the delay variable
     if is_non_negative_integer "$delay"; then
-    	echo "Delay is a valid non-negative integer: $delay seconds"
-    	if [ "$delay" -gt 0 ]; then
-#    	    echo "Sleeping for $delay seconds"
-    	    sleep $delay
-    	else
-    	    echo "No need to sleep, delay is zero"
-    	fi
-    else
-    	echo "Invalid delay value: $delay. Skipping sleep."
+        if [ "$delay" -gt 0 ]; then
+            sleep "$delay"
+        fi
     fi
 
     while [ $SECONDS -lt 300 ]; do
-        # Check if script has been running for longer than 5 minutes
-        if [ $SECONDS -gt 300 ]; then
-            echo "$machine_id:$instances_id Time out while stress testing " >> Error_testresults.log
-            ./vast destroy instance  $instances_id
-            exit 1
-        fi
-
         # Send an 'EOT' message and receive response
-#        message=$(echo "EOT" | nc -w 5 $IP $PORT)
-         message=$(python3 https_client.py  $IP $PORT) 
+        message=$(python3 https_client.py "$IP" "$PORT")
 
         # Log the response for debugging purposes if debugging is enabled
         if [ "$debugging" = true ]; then
@@ -125,11 +109,11 @@ if flock -n "$lock_file" -c "true"; then
         # If the message is 'DONE' or starts with 'ERROR', exit the loop
         if [[ "$message" == "DONE" ]]; then
             echo "$machine_id" >> Pass_testresults.log
-            ./vast destroy instance  $instances_id
-            exit 1
+            ./vast destroy instance "$instances_id"
+            exit 0
         elif [[ "$message" == ERROR* ]]; then
             echo "$machine_id:$instances_id $message" >> Error_testresults.log
-            ./vast destroy instance  $instances_id
+            ./vast destroy instance "$instances_id"
             exit 1
         fi
 
@@ -140,41 +124,40 @@ if flock -n "$lock_file" -c "true"; then
             no_response_seconds=0  # Reset if a response is received
         fi
 
-        # Check the instance status using is_instance function
+        # Check instance status using is_instance function
         status=$(is_instance "$instances_id")
         case $status in
           "running")
-            echo "Instance $instances_id is running."
-            # If no response for 60 seconds and instance is still running, log the fault and exit
+            # If no response for 60 seconds with running instance, log and exit
             if [ $no_response_seconds -ge 60 ]; then
                 echo "$machine_id:$instances_id No response from port $PORT for 60s with running instance" >> Error_testresults.log
                 ./vast destroy instance "$instances_id"
                 exit 1
             fi
-           ;;
+            ;;
           "offline")
             echo "$machine_id:$instances_id Unexpected offline during testing." >> Error_testresults.log
             ./vast destroy instance "$instances_id"
             exit 1
             ;;
           "exited")
-            echo "$machine_id:$instances_id Unexpected exit of an instance during testing." >> Error_testresults.log
+            echo "$machine_id:$instances_id Unexpected exit of instance during testing." >> Error_testresults.log
             ./vast destroy instance "$instances_id"
             exit 1
             ;;
           "created")
-            echo "$machine_id:$instances_id instance recreated unexpectedly while running tests." >> Error_testresults.log
+            echo "$machine_id:$instances_id instance recreated unexpectedly during tests." >> Error_testresults.log
             ./vast destroy instance "$instances_id"
             exit 1
             ;;
           *)
-            echo "$machine_id:$instances_id Unknown during stress testing. Possible crash or connection lost. Reported status: $status. " >> Error_testresults.log
+            echo "$machine_id:$instances_id Unknown status. Possible crash or lost connection. Status: $status." >> Error_testresults.log
             ./vast destroy instance "$instances_id"
             exit 1
             ;;
         esac
 
-        # Wait for 20 seconds before the next iteration (reduce from 60 seconds for quicker checks)
+        # Wait for 20 seconds before the next iteration
         sleep 20
     done
 
@@ -185,7 +168,7 @@ if flock -n "$lock_file" -c "true"; then
     rm "$lock_file"
 else
     echo "Lock file exists. Exiting..."
-    echo "$machine_id:$instances_id Lock file exists. Exiting... " >> Error_testresults.log
+    echo "$machine_id:$instances_id Lock file exists. Exiting..." >> Error_testresults.log
     exit 1
 fi
 

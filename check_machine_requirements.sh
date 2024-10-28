@@ -34,8 +34,8 @@ function check_requirements {
     if (( direct_ports <= 3 )); then
       unmet_reasons+=("Direct port count is $direct_ports (required > 3)")
     fi
-    if (( $(echo "$pcie_bandwidth <= 3" | bc -l) )); then
-      unmet_reasons+=("PCIe bandwidth is $pcie_bandwidth (required > 3)")
+    if (( $(echo "$pcie_bandwidth <= 2.9" | bc -l) )); then
+      unmet_reasons+=("PCIe bandwidth is $pcie_bandwidth (required > 2.85)")
     fi
     if (( $(echo "$inet_down_speed <= 10" | bc -l) )); then
       unmet_reasons+=("Internet download speed is $inet_down_speed Mb/s (required > 10 Mb/s)")

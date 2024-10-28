@@ -1,7 +1,7 @@
 import requests
 
 # API key and instance ID
-api_key = 'ddb7fd4a0469b216c233ca64431d72a65d318f02d05de04c074f8e3deb52a0c1'
+api_key = ''
 instance_id = '12162570'
 
 # API endpoint

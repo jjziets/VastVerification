@@ -37,6 +37,7 @@ except NameError:
 
 #server_url_default = "https://vast.ai"
 server_url_default = "https://console.vast.ai"
+# server_url_default = "http://localhost:5002"
 #server_url_default = "host.docker.internal"
 #server_url_default = "http://localhost:5002"
 #server_url_default  = "https://vast.ai/api/v0"
@@ -451,6 +452,14 @@ ipaddr_fields = (
     ("ip", "ip", "{}", None, True),
     ("first_seen", "first_seen", "{}", None, True),
     ("first_location", "first_location", "{}", None, True),
+)
+
+audit_log_fields = (
+    ("ip_address", "ip_address", "{}", None, True),
+    ("api_key_id", "api_key_id", "{}", None, True),
+    ("created_at", "created_at", "{}", None, True),
+    ("api_route", "api_route", "{}", None, True),
+    ("args", "args", "{}", None, True),
 )
 
 invoice_fields = (
@@ -1104,7 +1113,7 @@ def cloud__copy(args: argparse.Namespace):
         You can find more information about permissions here: https://vast.ai/docs/cli/roles-and-permissions
     """)
 )
-def create_api_key(args):
+def create__api_key(args):
     try:
         url = apiurl(args, "/auth/apikeys/")
         permissions = load_permissions_from_file(args.permission_file)
@@ -1282,6 +1291,9 @@ def get_runtype(args):
         For ssh/jupyter launch types, use --onstart-cmd to pass in startup script, instead of --entrypoint and --args.
         
         Examples:
+
+        # create an instance with the PyTorch (cuDNN Devel) template and 64GB of disk
+        vastai create instance 384826 --template_hash 661d064bbda1f2a133816b6d55da07c3 --disk 64
 
         # create an instance with the pytorch/pytorch image, 40GB of disk, open 8081 udp, direct ssh, set hostname to billybob, and a small onstart script
         vastai create instance 6995713 --image pytorch/pytorch --disk 40 --env '-p 8081:8081/udp -h billybob' --ssh --direct --onstart-cmd "env | grep _ >> /etc/environment; echo 'starting up'";                
@@ -3087,6 +3099,28 @@ def show__api_keys(args):
     else:
         print(r.json())
 
+
+@parser.command(
+    usage="vastai show audit-logs [--api-key API_KEY] [--raw]",
+    help="Display account's history of important actions"
+)
+def show__audit_logs(args):
+    """
+    Shows the history of ip address accesses to console.vast.ai endpoints
+
+    :param argparse.Namespace args: should supply all the command-line options
+    :rtype:
+    """
+    req_url = apiurl(args, "/audit_logs/")
+    r = http_get(args, req_url)
+    r.raise_for_status()
+    rows = r.json()
+    if args.raw:
+        print(json.dumps(rows, indent=1, sort_keys=True))
+    else:
+        display_table(rows, audit_log_fields)
+
+
 @parser.command(
     usage="vastai show ssh-keys",
     help="List your ssh keys associated with your account",
@@ -3647,6 +3681,59 @@ def update__endpoint(args):
 
 
 @parser.command(
+    argument("ID", help="id of instance to update", type=int),
+    argument("--template_id", help="new template ID to associate with the instance", type=int),
+    argument("--template_hash_id", help="new template hash ID to associate with the instance", type=str),
+    argument("--image", help="new image UUID for the instance", type=str),
+    argument("--args", help="new arguments for the instance", type=str),
+    argument("--env", help="new environment variables for the instance", type=json.loads),
+    argument("--onstart", help="new onstart script for the instance", type=str),
+    usage="vastai update instance ID [OPTIONS]",
+    help="Update recreate an instance from a new/updated template",
+    epilog=deindent("""
+        Example: vastai update instance 1234 --template_hash_id 661d064bbda1f2a133816b6d55da07c3
+    """),
+)
+def update__instance(args):
+    """
+    :param argparse.Namespace args: should supply all the command-line options
+    :rtype:
+    """
+    url = apiurl(args, f"/instances/update_template/{args.ID}/")
+    json_blob = {"id": args.ID}
+    
+    if args.template_id:
+        json_blob["template_id"] = args.template_id
+    if args.template_hash_id:
+        json_blob["template_hash_id"] = args.template_hash_id
+    if args.image:
+        json_blob["image"] = args.image
+    if args.args:
+        json_blob["args"] = args.args
+    if args.env:
+        json_blob["env"] = args.env
+    if args.onstart:
+        json_blob["onstart"] = args.onstart
+
+    if args.explain:
+        print("request json: ")
+        print(json_blob)
+    
+    r = http_put(args, url, headers=headers, json=json_blob)
+
+    if r.status_code == 200:
+        response_data = r.json()
+        if response_data.get("success"):
+            print(f"Instance {args.ID} updated successfully.")
+            print("Updated instance details:")
+            print(response_data.get("updated_instance"))
+        else:
+            print(f"Failed to update instance {args.ID}: {response_data.get('msg')}")
+    else:
+        print(f"Failed to update instance {args.ID} with error {r.status_code}: {r.text}")
+
+
+@parser.command(
     argument("ID", help="id of the role", type=int),
     argument("--name", help="name of the template", type=str),
     argument("--permissions", help="file path for json encoded permissions, look in the docs for more information", type=str),
@@ -3662,6 +3749,91 @@ def update__team_role(args):
         print(json.dumps(r.json(), indent=1))
     else:
         print(json.dumps(r.json(), indent=1))
+
+
+
+@parser.command(
+    argument("HASH_ID", help="hash id of the template", type=str),
+    argument("--name", help="name of the template", type=str),
+    argument("--image", help="docker container image to launch", type=str),
+    argument("--image_tag", help="docker image tag (can also be appended to end of image_path)", type=str),
+    argument("--login", help="docker login arguments for private repo authentication, surround with ''", type=str),
+    argument("--env", help="Contents of the 'Docker options' field", type=str),
+    
+    argument("--ssh",     help="Launch as an ssh instance type.", action="store_true"),
+    argument("--jupyter", help="Launch as a jupyter instance instead of an ssh instance.", action="store_true"),
+    argument("--direct",  help="Use (faster) direct connections for jupyter & ssh.", action="store_true"),
+    argument("--jupyter-dir", help="For runtype 'jupyter', directory in instance to use to launch jupyter. Defaults to image's working directory.", type=str),
+    argument("--jupyter-lab", help="For runtype 'jupyter', Launch instance with jupyter lab.", action="store_true"),
+
+    argument("--onstart-cmd", help="contents of onstart script as single argument", type=str),
+    argument("--search_params", help="search offers filters", type=str),
+    argument("-n", "--no-default", action="store_true", help="Disable default search param query args"),
+    argument("--disk_space", help="disk storage space, in GB", type=str),
+    usage="vastai update template HASH_ID",
+    help="Update an existing template",
+    epilog=deindent("""
+        Update a template
+        example: 
+            vastai update template c81e7ab0e928a508510d1979346de10d --name "tgi-llama2-7B-quantized" --image_path "ghcr.io/huggingface/text-generation-inference:1.0.3" 
+                                    --env "-p 3000:3000 -e MODEL_ARGS='--model-id TheBloke/Llama-2-7B-chat-GPTQ --quantize gptq'" 
+                                    --onstart_cmd 'wget -O - https://raw.githubusercontent.com/vast-ai/vast-pyworker/main/scripts/launch_tgi.sh | bash' 
+                                    --search_params "gpu_ram>=23 num_gpus=1 gpu_name=RTX_3090 inet_down>128 direct_port_count>3 disk_space>=192 driver_version>=535086005 rented=False" 
+                                    --disk 8.0 --ssh --direct
+    """)
+)
+def update__template(args):
+    url = apiurl(args, f"/template/")
+    jup_direct = args.jupyter and args.direct
+    ssh_direct = args.ssh and args.direct
+    use_ssh = args.ssh or args.jupyter
+    runtype = "jupyter" if args.jupyter else ("ssh" if args.ssh else "args")
+    if args.login:
+        login = args.login.split(" ")
+        docker_login_repo = login[0]
+    else:
+        docker_login_repo = None
+    default_search_query = {}
+    if not args.no_default:
+        default_search_query = {"verified": {"eq": True}, "external": {"eq": False}, "rentable": {"eq": True}, "rented": {"eq": False}}
+    
+    extra_filters = parse_query(args.search_params, default_search_query, offers_fields, offers_alias, offers_mult)
+    template = {
+        "hash_id": args.HASH_ID,
+        "image" : args.image,
+        "tag" : args.image_tag,
+        "env" : args.env, #str format
+        "onstart" : args.onstart_cmd, #don't accept file name for now
+        "jup_direct" : jup_direct,
+        "ssh_direct" : ssh_direct,
+        "use_jupyter_lab" : args.jupyter_lab,
+        "runtype" : runtype,
+        "use_ssh" : use_ssh,
+        "jupyter_dir" : args.jupyter_dir,
+        "docker_login_repo" : docker_login_repo, #can't store username/password with template for now
+        "extra_filters" : extra_filters,
+        "recommended_disk_space" : args.disk_space
+    }
+
+    json_blob = template
+    if (args.explain):
+        print("request json: ")
+        print(json_blob)
+
+    r = http_put(args, url, headers=headers, json=json_blob)
+    r.raise_for_status()
+    try:
+        rj = r.json()
+        if rj["success"]:
+            print(f"new template: {rj['templates'][0]}")
+        else:
+            print("template creation failed")
+    except requests.exceptions.JSONDecodeError as e:
+        print(str(e))
+        #print(r.text)
+        print(r.status_code)
+
+
 
 @parser.command(
     argument("id", help="id of the ssh key to update", type=int),
@@ -3855,6 +4027,42 @@ def generate__pdf_invoices(args):
     else:
         display_table(rows_inv, invoice_fields)
         vast_pdf.generate_invoice(user_blob, rows_inv, invoice_filter_data)
+
+
+
+
+
+@parser.command(
+    argument("id", help="id of machine to cancel maintenance(s) for", type=int),
+    usage="vastai cancel maint id",
+    help="[Host] Cancel maint window",
+    epilog=deindent("""
+        For deleting a machine's scheduled maintenance window(s), use this cancel maint command.    
+        Example: vastai cancel maint 8207
+    """),
+    )
+def cancel__maint(args):
+    """
+    :param argparse.Namespace args: should supply all the command-line options
+    :rtype:
+    """
+    url = apiurl(args, "/machines/{id}/cancel_maint/".format(id=args.id))
+
+    print(f"Cancelling scheduled maintenance window(s) for machine {args.id}.")
+    ok = input("Continue? [y/n] ")
+    if ok.strip().lower() != "y":
+        return
+
+    json_blob = {"client_id": "me", "machine_id": args.id}
+    if (args.explain):
+        print("request json: ")
+        print(json_blob)
+    r = http_put(args, url,  headers=headers,json=json_blob)
+    r.raise_for_status()
+    print(r.text)
+    print(f"Cancel maintenance window(s) scheduled for machine {args.id} success".format(r.json()))
+
+
 
 
 def cleanup_machine(args, machine_id):
@@ -4129,8 +4337,6 @@ def parse_env(envs):
 
 
 
-
-
 def pretty_print_POST(req):
     print('{}\n{}\r\n{}\r\n\r\n{}'.format(
         '-----------START-----------',
@@ -4169,13 +4375,15 @@ def set__min_bid(args):
     argument("id", help="id of machine to schedule maintenance for", type=int),
     argument("--sdate",      help="maintenance start date in unix epoch time (UTC seconds)", type=float),
     argument("--duration",   help="maintenance duration in hours", type=float),
-    usage="vastai schedule maintenance id [--sdate START_DATE --duration DURATION]",
+    argument("--maintenance_reason",   help="(optional) reason for the maintenance. Minimum 70 chars and Maximum 300 chars", type=str, default="not provided"),
+    argument("--maintenance_category",   help="(optional) can be one of [power, internet, disk, gpu, software, other]", type=str, default="not provided"),
+    usage="vastai schedule maintenance id [--sdate START_DATE --duration DURATION --maintenance_reason MAINTENANCE_REASON --maintenance_category MAINTENANCE_CATEGORY]",
     help="[Host] Schedule upcoming maint window",
     epilog=deindent("""
         The proper way to perform maintenance on your machine is to wait until all active contracts have expired or the machine is vacant.
         For unplanned or unscheduled maintenance, use this schedule maint command. That will notify the client that you have to take the machine down and that they should save their work. 
-        You can specify a date and duration.           
-        Example: vastai schedule maint 8207 --sdate 1677562671 --duration 0.5
+        You can specify a date, duration, reason and category for the maintenance.         
+        Example: vastai schedule maint 8207 --sdate 1677562671 --duration 0.5 --maintenance_reason "maintenance reason as a string that briefly helps clients understand why the maintenance was necessary" --maintenance_category "power"
     """),
     )
 def schedule__maint(args):
@@ -4192,45 +4400,13 @@ def schedule__maint(args):
     if ok.strip().lower() != "y":
         return
 
-    json_blob = {"client_id": "me", "sdate": string_to_unix_epoch(args.sdate), "duration": args.duration}
+    json_blob = {"client_id": "me", "sdate": string_to_unix_epoch(args.sdate), "duration": args.duration, "maintenance_reason": args.maintenance_reason, "maintenance_category": args.maintenance_category}
     if (args.explain):
         print("request json: ")
         print(json_blob)
     r = http_put(args, url,  headers=headers,json=json_blob)
     r.raise_for_status()
     print(f"Maintenance window scheduled for {dt} success".format(r.json()))
-
-@parser.command(
-    argument("id", help="id of machine to cancel maintenance(s) for", type=int),
-    usage="vastai cancel maint id",
-    help="[Host] Cancel maint window",
-    epilog=deindent("""
-        For deleting a machine's scheduled maintenance window(s), use this cancel maint command.    
-        Example: vastai cancel maint 8207
-    """),
-    )
-def cancel__maint(args):
-    """
-    :param argparse.Namespace args: should supply all the command-line options
-    :rtype:
-    """
-    url = apiurl(args, "/machines/{id}/cancel_maint/".format(id=args.id))
-
-    print(f"Cancelling scheduled maintenance window(s) for machine {args.id}.")
-    ok = input("Continue? [y/n] ")
-    if ok.strip().lower() != "y":
-        return
-
-    json_blob = {"client_id": "me", "machine_id": args.id}
-    if (args.explain):
-        print("request json: ")
-        print(json_blob)
-    r = http_put(args, url,  headers=headers,json=json_blob)
-    r.raise_for_status()
-    print(r.text)
-    print(f"Cancel maintenance window(s) scheduled for machine {args.id} success".format(r.json()))
-
-
 
 @parser.command(
     argument("ID", help="id of machine to display", type=int),
@@ -4339,7 +4515,7 @@ def main():
     parser.add_argument("--retry", help="retry limit", default=3)
     parser.add_argument("--raw", action="store_true", help="output machine-readable json")
     parser.add_argument("--explain", action="store_true", help="output verbose explanation of mapping of CLI calls to HTTPS API endpoints")
-    parser.add_argument("--api-key", help="api key. defaults to using the one stored in {}".format(api_key_file_base), type=str, required=False, default=api_key_guard)
+    parser.add_argument("--api-key", help="api key. defaults to using the one stored in {}".format(api_key_file_base), type=str, required=False, default=os.getenv("VAST_API_KEY", api_key_guard))
 
 
     args = parser.parse_args()
