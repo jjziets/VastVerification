@@ -65,13 +65,13 @@ server_thread.start()
 def log_message(message):
     with open(LOG_FILE, 'a') as log_file:
         log_file.write(message + '\n')
-    print(message)
+    print(message, flush=True)
 
 # Function to log messages to progress.log and print to stdout
 def write_message(message):
     with open(LOG_FILE, 'w') as log_file:
         log_file.write(message + '\n')
-    print(message)
+    print(message, flush=True)
 
 # Function to run tests and update the progress log
 def run_tests():
@@ -84,6 +84,8 @@ def run_tests():
     # First Test
     log_message("Running system requirements test...")
     result = subprocess.run(['python3', 'systemreqtest.py'], capture_output=True, text=True)
+    print(result.stdout, flush=True)
+    print(result.stderr, flush=True)
     if result.returncode == 0:
         log_message("TESTED : System requirements test passed.")
     else:
@@ -93,6 +95,8 @@ def run_tests():
     # Second Test
     log_message("Running ResNet50 test on all GPUs...")
     result = subprocess.run(['python3', 'testAllGpusResNet50.py'], capture_output=True, text=True)
+    print(result.stdout, flush=True)
+    print(result.stderr, flush=True)
     if result.returncode == 0:
         log_message("TESTED : ResNet50 passed")
     else:
@@ -102,6 +106,8 @@ def run_tests():
     # Third Test
     log_message("Running ECC test on all GPUs...")
     result = subprocess.run(['python3', 'eccfunction.py'], capture_output=True, text=True)
+    print(result.stdout, flush=True)
+    print(result.stderr, flush=True)
     if result.returncode == 0:
         log_message("TESTED : ECC test passed.")
     else:
