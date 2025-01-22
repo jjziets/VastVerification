@@ -1,0 +1,17 @@
+2025-01-09 19:16:35
+31586: Download speed <= 10 Mb/s; Upload speed <= 10 Mb/s
+31621: Download speed <= 10 Mb/s; Upload speed <= 10 Mb/s
+31653: Download speed <= 10 Mb/s; Upload speed <= 10 Mb/s
+26425: Download speed <= 10 Mb/s; Upload speed <= 10 Mb/s
+31582: Download speed <= 10 Mb/s; Upload speed <= 10 Mb/s
+31583: Download speed <= 10 Mb/s; Upload speed <= 10 Mb/s
+31584: Download speed <= 10 Mb/s; Upload speed <= 10 Mb/s
+31666: Download speed <= 10 Mb/s; Upload speed <= 10 Mb/s
+31668: Download speed <= 10 Mb/s; Upload speed <= 10 Mb/s
+31665: Download speed <= 10 Mb/s; Upload speed <= 10 Mb/s
+31685: Download speed <= 10 Mb/s; Upload speed <= 10 Mb/s
+31597: Download speed <= 10 Mb/s; Upload speed <= 10 Mb/s
+29800: Reliability <= 0.90; Download speed <= 10 Mb/s; Upload speed <= 10 Mb/s
+31684: Download speed <= 10 Mb/s; Upload speed <= 10 Mb/s
+31730: Reliability <= 0.90; Download speed <= 10 Mb/s; Upload speed <= 10 Mb/s
+29807: Reliability <= 0.90; Download speed <= 10 Mb/s; Upload speed <= 10 Mb/s

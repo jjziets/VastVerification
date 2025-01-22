@@ -1,5 +1,7 @@
 # Start with the specified CUDA image with cuDNN support
-FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+#FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+#FROM nvidia/cuda:12.0.0-cudnn8-runtime-ubuntu22.04
+FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
 
 # Install Python, necessary packages, stress-ng, build-essential for building gpu-burn, and clean up
 RUN apt-get -y update && apt-get -y upgrade && \
@@ -9,9 +11,9 @@ RUN apt-get -y update && apt-get -y upgrade && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Upgrade psutil and install PyTorch and other dependencies
+# Upgrade psutil and install PyTorch and other dependencies #    pip3 install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu124 && \
 RUN pip3 install --upgrade psutil && \
-    pip3 install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu124 && \
+    pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 && \  
     rm -rf /root/.cache/pip /tmp/* /var/tmp/*
 
 # Set the working directory in the container
@@ -25,6 +27,7 @@ COPY testAllGpusResNet50.py .
 COPY systemreqtest.py .
 COPY gpu_burn .
 COPY compare.ptx .
+COPY test_NCCL.py .
 
 # Install Python dependencies
 RUN pip3 install --no-cache-dir -r requirements.txt && \
